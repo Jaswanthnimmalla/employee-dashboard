@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "725463305875",
+    "project_id": "employee-dashboard-app-5f7ff",
+    "storage_bucket": "employee-dashboard-app-5f7ff.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:725463305875:android:12b36b6c13b3c2af814766",
+        "android_client_info": {
+          "package_name": "com.example.employee_dashboard_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA2eWyn12MF3XvmOpq3s2fi0UGC6ddnnjY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
