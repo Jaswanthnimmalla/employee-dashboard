@@ -1,4 +1,3 @@
-// lib/features/auth/presentation/screens/mark_attendance_screen.dart
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../core/services/cloudinary_service.dart';
+import 'package:employee_dashboard_app/core/utils/attendance_time_logic.dart';
 
 class MarkAttendanceScreen extends StatefulWidget {
   const MarkAttendanceScreen({super.key});
@@ -180,19 +180,15 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen>
     setState(() => _isCheckingLocation = true);
 
     try {
-      /// STEP 1 — Get last known location instantly (very fast)
       Position? lastPosition = await Geolocator.getLastKnownPosition();
 
       if (lastPosition != null) {
         setState(() => _currentPosition = lastPosition);
-
-        /// Fetch address in background
         _getAddressFromLatLng(lastPosition);
       }
 
-      /// STEP 2 — Get fresh location (faster accuracy)
       final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.low, // FAST
+        desiredAccuracy: LocationAccuracy.low,
         timeLimit: const Duration(seconds: 8),
       );
 
@@ -284,7 +280,7 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen>
             icon: const Icon(
               Icons.settings,
               size: 22, // bigger icon
-              color: Colors.white, // strong contrast
+              color: Colors.white,
             ),
             label: const Text(
               'Open Settings',
@@ -297,7 +293,7 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen>
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF1E3A8A),
-              foregroundColor: Colors.white, // applies to icon & text
+              foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(
                 horizontal: 18,
                 vertical: 12,
@@ -449,11 +445,7 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen>
       final user = _auth.currentUser;
       final now = DateTime.now();
 
-      String status = 'Present';
-      if (now.hour >= 10 && now.minute > 30)
-        status = 'Late';
-      else if (now.hour >= 11) status = 'Very Late';
-
+      final status = AttendanceTimeLogic.getStatus(now);
       String? photoUrl = await _uploadToCloudinary();
 
       final docRef = await _firestore.collection('attendance').add({
@@ -564,16 +556,10 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen>
       backgroundColor: const Color(0xFFF8FAFF),
       appBar: AppBar(
         centerTitle: true,
-
         elevation: 6,
-
         shadowColor: Colors.black26,
-
         backgroundColor: Colors.transparent,
-
         foregroundColor: Colors.white,
-
-        /// BACK BUTTON
         leading: IconButton(
           icon: Container(
             padding: const EdgeInsets.all(6),
@@ -589,8 +575,6 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen>
           ),
           onPressed: () => Navigator.pop(context),
         ),
-
-        /// CENTER TITLE ONLY
         title: const Text(
           "Mark Attendance",
           textAlign: TextAlign.center,
@@ -601,23 +585,19 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen>
             color: Colors.white,
           ),
         ),
-
-        /// GRADIENT BACKGROUND
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                Color(0xFF6C5CE7), // purple
-                Color(0xFF8E2DE2), // violet
-                Color(0xFFFF7043), // orange
+                Color(0xFF6C5CE7),
+                Color(0xFF8E2DE2),
+                Color(0xFFFF7043),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
           ),
         ),
-
-        /// BOTTOM BORDER LINE
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Container(
@@ -1259,6 +1239,67 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen>
   }
 
   Widget _buildActionButtons(bool isTablet) {
+    final now = DateTime.now();
+
+    final cutoffTime = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      11,
+      40,
+    );
+
+    final isTimeUp = now.isAfter(cutoffTime);
+
+    Expanded(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        child: ElevatedButton(
+          onPressed:
+              (_isProcessing || (_isCheckedIn && !_isCheckedOut) || isTimeUp)
+                  ? null
+                  : _markCheckIn,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF10B981),
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            elevation: _isProcessing ? 0 : 4,
+          ),
+          child: _isProcessing && !_isCheckedIn
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      _isCheckedIn ? Icons.check_circle : Icons.login,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      isTimeUp
+                          ? 'Time Up'
+                          : (_isCheckedIn ? 'Checked In' : 'Check In'),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
     if (_isCheckedOut) {
       return SizedBox(
         width: double.infinity,
@@ -1273,9 +1314,9 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen>
             'Back to Dashboard',
             style: TextStyle(
               fontSize: 18, // bigger text
-              fontWeight: FontWeight.w700, // stronger than bold
+              fontWeight: FontWeight.w700,
               color: Colors.white,
-              letterSpacing: 0.5, // improves readability
+              letterSpacing: 0.5,
             ),
           ),
           style: ElevatedButton.styleFrom(

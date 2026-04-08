@@ -3,29 +3,13 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class CloudinaryService {
-  // ================= CONFIG =================
-
   static const String cloudName = "daavatdft";
-
-  // ================= ATTENDANCE CONFIG =================
-
   static const String uploadPreset = "attendance_upload";
   static const String assetFolder = "attendenceenary";
-
-  // ================= LEAVE CONFIG =================
-
   static const String leavePreset = "leave_upload";
   static const String leaveFolder = "leaves";
-
-  // ================= REQUEST CONFIG (NEW) =================
-
   static const String requestPreset = "request_upload";
   static const String requestFolder = "requests";
-
-  // ======================================================
-  // ================= ATTENDANCE SELFIE ==================
-  // ======================================================
-
   static Future<String?> uploadAttendanceSelfie(
     File file, {
     required String userId,
@@ -49,10 +33,6 @@ class CloudinaryService {
     }
   }
 
-  // ======================================================
-  // ================= LEAVE PROOF ========================
-  // ======================================================
-
   static Future<String?> uploadLeaveProof(
     File file, {
     required String userId,
@@ -74,10 +54,6 @@ class CloudinaryService {
       return null;
     }
   }
-
-  // ======================================================
-  // ================= REQUEST FILE UPLOAD (NEW) ==========
-  // ======================================================
 
   static Future<String?> uploadRequestFile(
     File file, {
@@ -101,10 +77,6 @@ class CloudinaryService {
     }
   }
 
-  // ======================================================
-  // ================= GENERAL FILE =======================
-  // ======================================================
-
   static Future<String?> uploadGeneralFile(
     File file, {
     String? fileName,
@@ -125,8 +97,6 @@ class CloudinaryService {
       return null;
     }
   }
-
-  // ================= PROFILE PHOTO UPLOAD =================
 
   static const String profilePreset = "profile_upload";
   static const String profileFolder = "profiles";
@@ -153,10 +123,6 @@ class CloudinaryService {
     }
   }
 
-  // ======================================================
-  // ================= CORE UPLOAD METHOD =================
-  // ======================================================
-
   static Future<String?> _uploadFile(
     File file, {
     required String fileName,
@@ -172,8 +138,6 @@ class CloudinaryService {
         "POST",
         uri,
       );
-
-      // Required fields
 
       request.fields['upload_preset'] = preset;
       request.fields['folder'] = folder;

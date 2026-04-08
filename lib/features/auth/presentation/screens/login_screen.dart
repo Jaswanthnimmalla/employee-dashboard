@@ -34,9 +34,7 @@ class _LoginScreenState extends State<LoginScreen>
   File? _selectedImage;
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _departmentController = TextEditingController();
-
   final TextEditingController _positionController = TextEditingController();
-
   final TextEditingController _phoneController = TextEditingController();
   String _selectedRole = 'Team Member';
 
@@ -70,7 +68,6 @@ class _LoginScreenState extends State<LoginScreen>
       CurvedAnimation(parent: _controller, curve: Curves.easeOut),
     );
     _controller.forward();
-    _checkLoggedInUser();
     _updateGreeting();
   }
 
@@ -92,42 +89,14 @@ class _LoginScreenState extends State<LoginScreen>
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-
     final pickedFile = await picker.pickImage(
       source: ImageSource.gallery,
       imageQuality: 70,
     );
-
     if (pickedFile != null) {
       setState(() {
         _selectedImage = File(pickedFile.path);
       });
-    }
-  }
-
-  Future<void> _checkLoggedInUser() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-
-    final userRole = prefs.getString('userRole') ?? '';
-
-    if (!mounted) return;
-
-    /// STOP ADMIN AUTO LOGIN COMPLETELY
-    if (userRole == 'admin') {
-      await prefs.clear(); // remove saved session
-      return; // stay on login screen
-    }
-
-    /// ALLOW ONLY USER AUTO LOGIN
-    if (isLoggedIn && (userRole == 'user' || userRole == 'Team Member')) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const DashboardScreen(),
-        ),
-      );
     }
   }
 
@@ -137,14 +106,12 @@ class _LoginScreenState extends State<LoginScreen>
     _emailController.dispose();
     _passwordController.dispose();
     _nameController.dispose();
-
     _emailFocus.dispose();
     _passwordFocus.dispose();
     _nameFocus.dispose();
     _departmentFocus.dispose();
     _positionFocus.dispose();
     _phoneFocus.dispose();
-
     super.dispose();
   }
 
@@ -161,25 +128,11 @@ class _LoginScreenState extends State<LoginScreen>
     try {
       if (_isSignup) {
         if (_selectedImage == null) {
-          _showSnackbar(
-            'Please upload profile photo',
-            Colors.red,
-          );
-
-          setState(() {
-            _isLoading = false;
-          });
-
-          return;
-        }
-        if (_selectedImage == null) {
-          _showSnackbar(
-            'Please upload profile photo',
-            Colors.red,
-          );
+          _showSnackbar('Please upload profile photo', Colors.red);
           setState(() => _isLoading = false);
           return;
         }
+
         final email = _emailController.text.trim().toLowerCase();
         final password = _passwordController.text.trim();
         final name = _nameController.text.trim();
@@ -194,13 +147,11 @@ class _LoginScreenState extends State<LoginScreen>
           await userCredential.user!.updateDisplayName(name);
 
           String imageUrl = '';
-
           if (_selectedImage != null) {
             final uploadedUrl = await CloudinaryService.uploadProfilePhoto(
               _selectedImage!,
               userId: userCredential.user!.uid,
             );
-
             if (uploadedUrl != null) {
               imageUrl = uploadedUrl;
             }
@@ -218,8 +169,6 @@ class _LoginScreenState extends State<LoginScreen>
             'joinDate': FieldValue.serverTimestamp(),
             'createdAt': FieldValue.serverTimestamp(),
           };
-
-          /// SAVE BASED ON ROLE
 
           if (_selectedRole == 'admin') {
             await _firestore
@@ -242,6 +191,7 @@ class _LoginScreenState extends State<LoginScreen>
             _departmentController.clear();
             _positionController.clear();
             _phoneController.clear();
+            _selectedImage = null;
           });
 
           _showSnackbar(
@@ -272,7 +222,6 @@ class _LoginScreenState extends State<LoginScreen>
             _isLoading = false;
           });
 
-          // Show success animation
           await _showSuccessAnimation();
 
           if (mounted) {
@@ -285,10 +234,7 @@ class _LoginScreenState extends State<LoginScreen>
                   transitionDuration: const Duration(milliseconds: 300),
                   transitionsBuilder:
                       (context, animation, secondaryAnimation, child) {
-                    return FadeTransition(
-                      opacity: animation,
-                      child: child,
-                    );
+                    return FadeTransition(opacity: animation, child: child);
                   },
                 ),
               );
@@ -301,10 +247,7 @@ class _LoginScreenState extends State<LoginScreen>
                   transitionDuration: const Duration(milliseconds: 300),
                   transitionsBuilder:
                       (context, animation, secondaryAnimation, child) {
-                    return FadeTransition(
-                      opacity: animation,
-                      child: child,
-                    );
+                    return FadeTransition(opacity: animation, child: child);
                   },
                 ),
               );
@@ -313,9 +256,7 @@ class _LoginScreenState extends State<LoginScreen>
         }
       }
     } on FirebaseAuthException catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
 
       String errorMessage;
       switch (e.code) {
@@ -342,9 +283,7 @@ class _LoginScreenState extends State<LoginScreen>
       }
       _showSnackbar(errorMessage, Colors.red);
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
       _showSnackbar(
           'An unexpected error occurred. Please try again.', Colors.red);
     }
@@ -376,11 +315,8 @@ class _LoginScreenState extends State<LoginScreen>
                     ),
                   ],
                 ),
-                child: const Icon(
-                  Icons.check_circle,
-                  color: Colors.green,
-                  size: 50,
-                ),
+                child: const Icon(Icons.check_circle,
+                    color: Colors.green, size: 50),
               ),
             );
           },
@@ -461,27 +397,21 @@ class _LoginScreenState extends State<LoginScreen>
     if (value == null || value.isEmpty) {
       return 'Password is required';
     }
-
     if (value.length < 8) {
       return 'Minimum 8 characters required';
     }
-
     if (!RegExp(r'[A-Z]').hasMatch(value)) {
       return 'Must contain uppercase letter';
     }
-
     if (!RegExp(r'[a-z]').hasMatch(value)) {
       return 'Must contain lowercase letter';
     }
-
     if (!RegExp(r'[0-9]').hasMatch(value)) {
       return 'Must contain number';
     }
-
     if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(value)) {
       return 'Must contain special character';
     }
-
     return null;
   }
 
@@ -533,7 +463,7 @@ class _LoginScreenState extends State<LoginScreen>
               )
             : null,
         title: Text(
-          _isSignup ? 'Create Account' : 'Welcome Back',
+          _isSignup ? 'Create Account' : 'Employee Dashboard',
           style: TextStyle(
             color: currentColor,
             fontWeight: FontWeight.bold,
@@ -678,309 +608,256 @@ class _LoginScreenState extends State<LoginScreen>
                               ],
                             ),
                             child: Form(
-                                key: _formKey,
-                                child: Column(
-                                  children: [
-                                    // ================= SIGNUP FIELDS =================
-                                    if (_isSignup) ...[
-                                      Center(
-                                        child: GestureDetector(
-                                          onTap: _pickImage,
-                                          child: CircleAvatar(
-                                            radius: 45,
-                                            backgroundColor:
-                                                Colors.grey.shade200,
-                                            backgroundImage:
-                                                _selectedImage != null
-                                                    ? FileImage(_selectedImage!)
-                                                    : null,
-                                            child: _selectedImage == null
-                                                ? const Icon(Icons.camera_alt,
-                                                    size: 28)
-                                                : null,
-                                          ),
+                              key: _formKey,
+                              child: Column(
+                                children: [
+                                  if (_isSignup) ...[
+                                    Center(
+                                      child: GestureDetector(
+                                        onTap: _pickImage,
+                                        child: CircleAvatar(
+                                          radius: 45,
+                                          backgroundColor: Colors.grey.shade200,
+                                          backgroundImage:
+                                              _selectedImage != null
+                                                  ? FileImage(_selectedImage!)
+                                                  : null,
+                                          child: _selectedImage == null
+                                              ? const Icon(Icons.camera_alt,
+                                                  size: 28)
+                                              : null,
                                         ),
                                       ),
-
-                                      const SizedBox(height: 14),
-
-                                      // FULL NAME
-                                      TextFormField(
-                                        controller: _nameController,
-                                        focusNode: _nameFocus,
-                                        textInputAction: TextInputAction.next,
-                                        onFieldSubmitted: (_) {
-                                          FocusScope.of(context)
-                                              .requestFocus(_departmentFocus);
-                                        },
-                                        decoration: InputDecoration(
-                                          labelText: 'Full Name',
-                                          prefixIcon: Icon(
-                                            Icons.person_outline,
-                                            color: currentColor,
-                                            size: 20,
-                                          ),
-                                          border: OutlineInputBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(12),
-                                          ),
-                                        ),
-                                        validator: _validateName,
-                                      ),
-
-                                      const SizedBox(height: 14),
-
-                                      // DEPARTMENT
-                                      TextFormField(
-                                        controller: _departmentController,
-                                        focusNode: _departmentFocus,
-                                        textInputAction: TextInputAction.next,
-                                        onFieldSubmitted: (_) {
-                                          FocusScope.of(context)
-                                              .requestFocus(_positionFocus);
-                                        },
-                                        decoration: InputDecoration(
-                                          labelText: 'Department',
-                                          prefixIcon: Icon(
-                                            Icons.business,
-                                            color: currentColor,
-                                            size: 20,
-                                          ),
-                                          border: OutlineInputBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(12),
-                                          ),
-                                        ),
-                                        validator: (value) {
-                                          if (_isSignup &&
-                                              (value == null ||
-                                                  value.trim().isEmpty)) {
-                                            return 'Department is required';
-                                          }
-                                          return null;
-                                        },
-                                      ),
-                                      const SizedBox(height: 14),
-
-                                      // POSITION
-                                      TextFormField(
-                                        controller: _positionController,
-                                        focusNode: _positionFocus,
-                                        textInputAction: TextInputAction.next,
-                                        onFieldSubmitted: (_) {
-                                          FocusScope.of(context)
-                                              .requestFocus(_phoneFocus);
-                                        },
-                                        decoration: InputDecoration(
-                                          labelText: 'Position',
-                                          prefixIcon: Icon(
-                                            Icons.work,
-                                            color: currentColor,
-                                            size: 20,
-                                          ),
-                                          border: OutlineInputBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(12),
-                                          ),
-                                        ),
-                                        validator: (value) {
-                                          if (_isSignup &&
-                                              (value == null ||
-                                                  value.trim().isEmpty)) {
-                                            return 'Position is required';
-                                          }
-                                          return null;
-                                        },
-                                      ),
-
-                                      const SizedBox(height: 14),
-
-                                      // PHONE
-                                      TextFormField(
-                                        controller: _phoneController,
-                                        focusNode: _phoneFocus,
-                                        keyboardType: TextInputType.phone,
-                                        textInputAction: TextInputAction.next,
-                                        onFieldSubmitted: (_) {
-                                          FocusScope.of(context)
-                                              .requestFocus(_emailFocus);
-                                        },
-                                        decoration: InputDecoration(
-                                          labelText: 'Phone',
-                                          prefixIcon: Icon(
-                                            Icons.phone,
-                                            color: currentColor,
-                                            size: 20,
-                                          ),
-                                          border: OutlineInputBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(12),
-                                          ),
-                                        ),
-                                        validator: (value) {
-                                          if (_isSignup &&
-                                              (value == null ||
-                                                  value.trim().isEmpty)) {
-                                            return 'Phone number is required';
-                                          }
-
-                                          if (_isSignup &&
-                                              !RegExp(r'^[0-9]{10}$').hasMatch(
-                                                  value?.trim() ?? '')) {
-                                            return 'Enter valid 10-digit phone number';
-                                          }
-
-                                          return null;
-                                        },
-                                      ),
-
-                                      const SizedBox(height: 14),
-                                    ],
-
-                                    // ================= EMAIL =================
-                                    TextFormField(
-                                      controller: _emailController,
-                                      focusNode: _emailFocus,
-                                      keyboardType: TextInputType.emailAddress,
-                                      textInputAction: TextInputAction.next,
-                                      onFieldSubmitted: (_) =>
-                                          FocusScope.of(context)
-                                              .requestFocus(_passwordFocus),
-                                      decoration: InputDecoration(
-                                        labelText: 'Email',
-                                        prefixIcon: Icon(
-                                          Icons.email,
-                                          color: currentColor,
-                                          size: 20,
-                                        ),
-                                        border: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                        ),
-                                      ),
-                                      validator: _validateEmail,
                                     ),
-
                                     const SizedBox(height: 14),
-
-                                    // ================= PASSWORD =================
                                     TextFormField(
-                                      controller: _passwordController,
-                                      focusNode: _passwordFocus,
-                                      obscureText: !_isPasswordVisible,
-                                      textInputAction: TextInputAction.done,
-                                      onFieldSubmitted: (_) => _handleAuth(),
+                                      controller: _nameController,
+                                      focusNode: _nameFocus,
+                                      textInputAction: TextInputAction.next,
+                                      onFieldSubmitted: (_) {
+                                        FocusScope.of(context)
+                                            .requestFocus(_departmentFocus);
+                                      },
                                       decoration: InputDecoration(
-                                        labelText: 'Password',
-                                        prefixIcon: Icon(
-                                          Icons.lock,
-                                          color: currentColor,
-                                          size: 20,
-                                        ),
-                                        suffixIcon: IconButton(
-                                          icon: Icon(
-                                            _isPasswordVisible
-                                                ? Icons.visibility
-                                                : Icons.visibility_off,
-                                            color: currentColor,
-                                          ),
-                                          onPressed: () {
-                                            setState(() {
-                                              _isPasswordVisible =
-                                                  !_isPasswordVisible;
-                                            });
-                                          },
-                                        ),
+                                        labelText: 'Full Name',
+                                        prefixIcon: Icon(Icons.person_outline,
+                                            color: currentColor, size: 20),
                                         border: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                        ),
+                                            borderRadius:
+                                                BorderRadius.circular(12)),
                                       ),
-                                      validator: _validatePassword,
+                                      validator: _validateName,
                                     ),
-
-                                    // ================= FORGOT PASSWORD =================
-                                    if (!_isSignup) ...[
-                                      const SizedBox(height: 10),
-                                      Align(
-                                        alignment: Alignment.centerRight,
-                                        child: TextButton(
-                                          onPressed: _sendPasswordResetEmail,
-                                          child: Text(
-                                            'Forgot Password?',
-                                            style: TextStyle(
-                                              color: currentColor,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w500,
-                                            ),
+                                    const SizedBox(height: 14),
+                                    TextFormField(
+                                      controller: _departmentController,
+                                      focusNode: _departmentFocus,
+                                      textInputAction: TextInputAction.next,
+                                      onFieldSubmitted: (_) {
+                                        FocusScope.of(context)
+                                            .requestFocus(_positionFocus);
+                                      },
+                                      decoration: InputDecoration(
+                                        labelText: 'Department',
+                                        prefixIcon: Icon(Icons.business,
+                                            color: currentColor, size: 20),
+                                        border: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12)),
+                                      ),
+                                      validator: (value) {
+                                        if (_isSignup &&
+                                            (value == null ||
+                                                value.trim().isEmpty)) {
+                                          return 'Department is required';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                    const SizedBox(height: 14),
+                                    TextFormField(
+                                      controller: _positionController,
+                                      focusNode: _positionFocus,
+                                      textInputAction: TextInputAction.next,
+                                      onFieldSubmitted: (_) {
+                                        FocusScope.of(context)
+                                            .requestFocus(_phoneFocus);
+                                      },
+                                      decoration: InputDecoration(
+                                        labelText: 'Position',
+                                        prefixIcon: Icon(Icons.work,
+                                            color: currentColor, size: 20),
+                                        border: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12)),
+                                      ),
+                                      validator: (value) {
+                                        if (_isSignup &&
+                                            (value == null ||
+                                                value.trim().isEmpty)) {
+                                          return 'Position is required';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                    const SizedBox(height: 14),
+                                    TextFormField(
+                                      controller: _phoneController,
+                                      focusNode: _phoneFocus,
+                                      keyboardType: TextInputType.phone,
+                                      textInputAction: TextInputAction.next,
+                                      onFieldSubmitted: (_) {
+                                        FocusScope.of(context)
+                                            .requestFocus(_emailFocus);
+                                      },
+                                      decoration: InputDecoration(
+                                        labelText: 'Phone',
+                                        prefixIcon: Icon(Icons.phone,
+                                            color: currentColor, size: 20),
+                                        border: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12)),
+                                      ),
+                                      validator: (value) {
+                                        if (_isSignup &&
+                                            (value == null ||
+                                                value.trim().isEmpty)) {
+                                          return 'Phone number is required';
+                                        }
+                                        if (_isSignup &&
+                                            !RegExp(r'^[0-9]{10}$').hasMatch(
+                                                value?.trim() ?? '')) {
+                                          return 'Enter valid 10-digit phone number';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                    const SizedBox(height: 14),
+                                  ],
+                                  TextFormField(
+                                    controller: _emailController,
+                                    focusNode: _emailFocus,
+                                    keyboardType: TextInputType.emailAddress,
+                                    textInputAction: TextInputAction.next,
+                                    onFieldSubmitted: (_) =>
+                                        FocusScope.of(context)
+                                            .requestFocus(_passwordFocus),
+                                    decoration: InputDecoration(
+                                      labelText: 'Email',
+                                      prefixIcon: Icon(Icons.email,
+                                          color: currentColor, size: 20),
+                                      border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12)),
+                                    ),
+                                    validator: _validateEmail,
+                                  ),
+                                  const SizedBox(height: 14),
+                                  TextFormField(
+                                    controller: _passwordController,
+                                    focusNode: _passwordFocus,
+                                    obscureText: !_isPasswordVisible,
+                                    textInputAction: TextInputAction.done,
+                                    onFieldSubmitted: (_) => _handleAuth(),
+                                    decoration: InputDecoration(
+                                      labelText: 'Password',
+                                      prefixIcon: Icon(Icons.lock,
+                                          color: currentColor, size: 20),
+                                      suffixIcon: IconButton(
+                                        icon: Icon(
+                                          _isPasswordVisible
+                                              ? Icons.visibility
+                                              : Icons.visibility_off,
+                                          color: currentColor,
+                                        ),
+                                        onPressed: () {
+                                          setState(() => _isPasswordVisible =
+                                              !_isPasswordVisible);
+                                        },
+                                      ),
+                                      border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12)),
+                                    ),
+                                    validator: _validatePassword,
+                                  ),
+                                  if (!_isSignup) ...[
+                                    const SizedBox(height: 10),
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: TextButton(
+                                        onPressed: _sendPasswordResetEmail,
+                                        child: Text(
+                                          'Forgot Password?',
+                                          style: TextStyle(
+                                            color: currentColor,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
                                           ),
                                         ),
                                       ),
-                                    ],
-
-                                    const SizedBox(height: 20),
-
-                                    // ================= BUTTON =================
-                                    SizedBox(
-                                      width: double.infinity,
-                                      height: 50,
-                                      child: _isLoading
-                                          ? Center(
-                                              child: SizedBox(
-                                                width: 24,
-                                                height: 24,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                  strokeWidth: 2.5,
-                                                  valueColor:
-                                                      AlwaysStoppedAnimation<
-                                                          Color>(currentColor),
-                                                ),
-                                              ),
-                                            )
-                                          : ElevatedButton(
-                                              onPressed: _handleAuth,
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: _isSignup
-                                                    ? (_selectedRole == 'admin'
-                                                        ? _adminColor
-                                                        : _userColor)
-                                                    : currentColor,
-                                                foregroundColor: Colors.white,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                ),
-                                                elevation: 2,
-                                              ),
-                                              child: Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                children: [
-                                                  Icon(
-                                                    _isSignup
-                                                        ? Icons.person_add
-                                                        : Icons.login,
-                                                    color: Colors.white,
-                                                    size: 18,
-                                                  ),
-                                                  const SizedBox(width: 10),
-                                                  Text(
-                                                    _isSignup
-                                                        ? 'SIGN UP'
-                                                        : 'LOGIN',
-                                                    style: const TextStyle(
-                                                      fontSize: 15,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
                                     ),
                                   ],
-                                )),
+                                  const SizedBox(height: 20),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    height: 50,
+                                    child: _isLoading
+                                        ? Center(
+                                            child: SizedBox(
+                                              width: 24,
+                                              height: 24,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2.5,
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<
+                                                        Color>(currentColor),
+                                              ),
+                                            ),
+                                          )
+                                        : ElevatedButton(
+                                            onPressed: _handleAuth,
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: _isSignup
+                                                  ? (_selectedRole == 'admin'
+                                                      ? _adminColor
+                                                      : _userColor)
+                                                  : currentColor,
+                                              foregroundColor: Colors.white,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                              elevation: 2,
+                                            ),
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  _isSignup
+                                                      ? Icons.person_add
+                                                      : Icons.login,
+                                                  color: Colors.white,
+                                                  size: 18,
+                                                ),
+                                                const SizedBox(width: 10),
+                                                Text(
+                                                  _isSignup
+                                                      ? 'SIGN UP'
+                                                      : 'LOGIN',
+                                                  style: const TextStyle(
+                                                    fontSize: 15,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                           const SizedBox(height: 16),
                           Row(
@@ -991,9 +868,8 @@ class _LoginScreenState extends State<LoginScreen>
                                     ? 'Already have an account? '
                                     : "Don't have an account? ",
                                 style: TextStyle(
-                                  color: _textColor.withOpacity(0.6),
-                                  fontSize: 12,
-                                ),
+                                    color: _textColor.withOpacity(0.6),
+                                    fontSize: 12),
                               ),
                               TextButton(
                                 onPressed: () {
@@ -1005,6 +881,7 @@ class _LoginScreenState extends State<LoginScreen>
                                     _departmentController.clear();
                                     _positionController.clear();
                                     _phoneController.clear();
+                                    _selectedImage = null;
                                     _isLoading = false;
                                   });
                                 },
@@ -1027,9 +904,8 @@ class _LoginScreenState extends State<LoginScreen>
                           Text(
                             '© 2025 Employee Dashboard',
                             style: TextStyle(
-                              color: _textColor.withOpacity(0.4),
-                              fontSize: 10,
-                            ),
+                                color: _textColor.withOpacity(0.4),
+                                fontSize: 10),
                           ),
                           const SizedBox(height: 8),
                         ],
@@ -1055,44 +931,33 @@ class _LoginScreenState extends State<LoginScreen>
         color: Colors.white,
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-          ),
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8),
         ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _buildRoleOption(
-            'User',
-            Icons.person,
-            _userColor,
-            _selectedRole == 'user',
-            () => setState(() => _selectedRole = 'user'),
-            isSmall,
-          ),
+              'User',
+              Icons.person,
+              _userColor,
+              _selectedRole == 'user',
+              () => setState(() => _selectedRole = 'user'),
+              isSmall),
           _buildRoleOption(
-            'Admin',
-            Icons.admin_panel_settings,
-            _adminColor,
-            _selectedRole == 'admin',
-            () => setState(() => _selectedRole = 'admin'),
-            isSmall,
-          ),
+              'Admin',
+              Icons.admin_panel_settings,
+              _adminColor,
+              _selectedRole == 'admin',
+              () => setState(() => _selectedRole = 'admin'),
+              isSmall),
         ],
       ),
     );
   }
 
-  Widget _buildRoleOption(
-    String label,
-    IconData icon,
-    Color color,
-    bool isSelected,
-    VoidCallback onTap,
-    bool isSmall,
-  ) {
+  Widget _buildRoleOption(String label, IconData icon, Color color,
+      bool isSelected, VoidCallback onTap, bool isSmall) {
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -1106,11 +971,9 @@ class _LoginScreenState extends State<LoginScreen>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                icon,
-                color: isSelected ? Colors.white : color,
-                size: isSmall ? 16 : 18,
-              ),
+              Icon(icon,
+                  color: isSelected ? Colors.white : color,
+                  size: isSmall ? 16 : 18),
               const SizedBox(width: 6),
               Text(
                 label,

@@ -1,5 +1,3 @@
-// lib/admin/data/presentation/screens/contact_us_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -36,10 +34,43 @@ class _ContactUsScreenState extends State<ContactUsScreen>
     super.dispose();
   }
 
+  Widget _buildAnimatedIcon(IconData icon, Color color, double size) {
+    return TweenAnimationBuilder(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 800),
+      builder: (context, double value, child) {
+        return Transform.scale(
+          scale: value,
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [color, color.withOpacity(0.6)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: color.withOpacity(0.3),
+                  blurRadius: 15,
+                  spreadRadius: 2,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: Colors.white, size: size * 0.5),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: const Color(0xFFF8FAFF),
       appBar: AppBar(
         title: const Text(
           'Contact Us',
@@ -50,7 +81,7 @@ class _ContactUsScreenState extends State<ContactUsScreen>
           ),
         ),
         centerTitle: true,
-        elevation: 4,
+        elevation: 0,
         backgroundColor: Colors.transparent,
         flexibleSpace: Container(
           decoration: const BoxDecoration(
@@ -62,13 +93,14 @@ class _ContactUsScreenState extends State<ContactUsScreen>
           ),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 22),
           onPressed: () => Navigator.pop(context),
         ),
       ),
       body: SingleChildScrollView(
         child: Column(
           children: [
+            const SizedBox(height: 20),
             FadeTransition(
               opacity: _animationController,
               child: Container(
@@ -80,7 +112,11 @@ class _ContactUsScreenState extends State<ContactUsScreen>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(30),
+                  borderRadius: BorderRadius.circular(32),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.3),
+                    width: 1.5,
+                  ),
                   boxShadow: [
                     BoxShadow(
                       color: const Color(0xFF6C5CE7).withOpacity(0.3),
@@ -91,43 +127,16 @@ class _ContactUsScreenState extends State<ContactUsScreen>
                 ),
                 child: Column(
                   children: [
-                    TweenAnimationBuilder(
-                      tween: Tween<double>(begin: 0, end: 1),
-                      duration: const Duration(milliseconds: 1000),
-                      builder: (context, double value, child) {
-                        return Transform.scale(
-                          scale: value,
-                          child: Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  blurRadius: 10,
-                                ),
-                              ],
-                            ),
-                            child: const Center(
-                              child: Icon(
-                                Icons.contact_mail,
-                                color: Color(0xFF6C5CE7),
-                                size: 40,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                    _buildAnimatedIcon(
+                        Icons.contact_support, const Color(0xFFFF7043), 80),
                     const SizedBox(height: 20),
                     const Text(
                       'Get in Touch',
                       style: TextStyle(
-                        fontSize: 24,
+                        fontSize: 26,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
+                        letterSpacing: 0.5,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -149,7 +158,11 @@ class _ContactUsScreenState extends State<ContactUsScreen>
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: const Color(0xFF6C5CE7).withOpacity(0.2),
+                    width: 1.5,
+                  ),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.05),
@@ -161,30 +174,21 @@ class _ContactUsScreenState extends State<ContactUsScreen>
                 child: Column(
                   children: [
                     _buildContactOption(
-                      Icons.email,
+                      Icons.email_outlined,
                       'Email Us',
                       'admin@employeedashboard.com',
                       'support@employeedashboard.com',
                       () => _launchEmail(),
-                      Colors.blue,
+                      const Color(0xFF4A90E2),
                     ),
                     const SizedBox(height: 16),
                     _buildContactOption(
-                      Icons.phone,
+                      Icons.phone_outlined,
                       'Call Us',
-                      '+1 234 567 8900',
-                      '+1 234 567 8901',
+                      '+91 98765 43210',
+                      '+91 98765 43211',
                       () => _launchPhone(),
-                      Colors.green,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildContactOption(
-                      Icons.location_on,
-                      'Visit Us',
-                      '123 Business Street',
-                      'Tech City, TC 12345',
-                      () => _launchMap(),
-                      Colors.orange,
+                      const Color(0xFF27AE60),
                     ),
                   ],
                 ),
@@ -198,7 +202,11 @@ class _ContactUsScreenState extends State<ContactUsScreen>
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: const Color(0xFF6C5CE7).withOpacity(0.2),
+                    width: 1.5,
+                  ),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.05),
@@ -210,11 +218,21 @@ class _ContactUsScreenState extends State<ContactUsScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.message, color: Color(0xFF6C5CE7), size: 24),
-                        SizedBox(width: 12),
-                        Text(
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF6C5CE7), Color(0xFF8E2DE2)],
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(Icons.message_outlined,
+                              color: Colors.white, size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
                           'Send us a Message',
                           style: TextStyle(
                             fontSize: 18,
@@ -224,22 +242,22 @@ class _ContactUsScreenState extends State<ContactUsScreen>
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
                     TextField(
                       controller: _nameController,
                       decoration: InputDecoration(
                         labelText: 'Your Name',
                         prefixIcon: const Icon(Icons.person_outline),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                           borderSide: BorderSide(color: Colors.grey.shade300),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                           borderSide: BorderSide(color: Colors.grey.shade300),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                           borderSide: const BorderSide(
                               color: Color(0xFF6C5CE7), width: 2),
                         ),
@@ -253,15 +271,15 @@ class _ContactUsScreenState extends State<ContactUsScreen>
                         labelText: 'Email Address',
                         prefixIcon: const Icon(Icons.email_outlined),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                           borderSide: BorderSide(color: Colors.grey.shade300),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                           borderSide: BorderSide(color: Colors.grey.shade300),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                           borderSide: const BorderSide(
                               color: Color(0xFF6C5CE7), width: 2),
                         ),
@@ -276,15 +294,15 @@ class _ContactUsScreenState extends State<ContactUsScreen>
                         prefixIcon: const Icon(Icons.message_outlined),
                         alignLabelWithHint: true,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                           borderSide: BorderSide(color: Colors.grey.shade300),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                           borderSide: BorderSide(color: Colors.grey.shade300),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                           borderSide: const BorderSide(
                               color: Color(0xFF6C5CE7), width: 2),
                         ),
@@ -300,7 +318,7 @@ class _ContactUsScreenState extends State<ContactUsScreen>
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                           elevation: 2,
                         ),
@@ -332,13 +350,13 @@ class _ContactUsScreenState extends State<ContactUsScreen>
   ) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(20),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: color.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.2), width: 1.5),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withOpacity(0.25), width: 1.5),
         ),
         child: Row(
           children: [
@@ -347,8 +365,17 @@ class _ContactUsScreenState extends State<ContactUsScreen>
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [color, color.withOpacity(0.7)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Icon(icon, color: Colors.white, size: 24),
             ),
@@ -397,17 +424,9 @@ class _ContactUsScreenState extends State<ContactUsScreen>
   }
 
   Future<void> _launchPhone() async {
-    final Uri phoneUri = Uri(scheme: 'tel', path: '+12345678900');
+    final Uri phoneUri = Uri(scheme: 'tel', path: '+919876543210');
     if (await canLaunchUrl(phoneUri)) {
       await launchUrl(phoneUri);
-    }
-  }
-
-  Future<void> _launchMap() async {
-    final Uri mapUri =
-        Uri.parse('https://maps.google.com/?q=123+Business+Street');
-    if (await canLaunchUrl(mapUri)) {
-      await launchUrl(mapUri);
     }
   }
 
@@ -418,7 +437,18 @@ class _ContactUsScreenState extends State<ContactUsScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please fill all fields'),
-          backgroundColor: Colors.red,
+          backgroundColor: Color(0xFFE74C3C),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (!_emailController.text.contains('@')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid email address'),
+          backgroundColor: Color(0xFFE74C3C),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -427,8 +457,9 @@ class _ContactUsScreenState extends State<ContactUsScreen>
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Message sent successfully!'),
-        backgroundColor: Colors.green,
+        content:
+            Text('Message sent successfully! We\'ll get back to you soon.'),
+        backgroundColor: Color(0xFF27AE60),
         behavior: SnackBarBehavior.floating,
       ),
     );

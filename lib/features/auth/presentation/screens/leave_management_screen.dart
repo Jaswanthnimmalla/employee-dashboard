@@ -58,7 +58,6 @@ class _PaperJetLoaderState extends State<_PaperJetLoader>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          /// MOVING JET
           AnimatedBuilder(
             animation: _animation,
             builder: (context, child) {
@@ -70,22 +69,15 @@ class _PaperJetLoaderState extends State<_PaperJetLoader>
             child: Icon(
               Icons.send_rounded,
               size: 54,
-
-              /// STRONG COLOR
               color: Colors.deepPurple.shade700,
             ),
           ),
-
           const SizedBox(height: 10),
-
-          /// TEXT
           Text(
             "Submitting...",
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-
-              /// HIGH CONTRAST COLOR
               color: Colors.black87,
               letterSpacing: 0.3,
             ),
@@ -235,7 +227,6 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
         return;
       }
 
-      // Match your Firestore structure exactly
       await FirebaseFirestore.instance.collection("leaves").add({
         "studentId": user.uid, // Using studentId as shown in your screenshot
         "studentName":
@@ -380,28 +371,22 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
       resizeToAvoidBottomInset: true,
       backgroundColor: Colors.deepPurple.shade50,
       appBar: AppBar(
-        /// GRADIENT BACKGROUND (same as dashboard)
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                Color(0xFF6C5CE7), // purple
-                Color(0xFF8E2DE2), // violet
-                Color(0xFFFF7043), // orange
+                Color(0xFF6C5CE7),
+                Color(0xFF8E2DE2),
+                Color(0xFFFF7043),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
           ),
         ),
-
         elevation: 4,
-
         centerTitle: true,
-
         foregroundColor: Colors.white,
-
-        /// TITLE
         title: const Text(
           "Apply for Leave",
           style: TextStyle(
@@ -410,8 +395,6 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
             letterSpacing: 0.5,
           ),
         ),
-
-        /// BACK BUTTON
         leading: IconButton(
           icon: const Icon(
             Icons.arrow_back_ios_new,
@@ -447,8 +430,6 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 18),
-
-                    /// LEAVE TYPE
                     DropdownButtonFormField<String>(
                       value: selectedLeaveType,
                       hint: const Text(
@@ -487,7 +468,6 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
                           value: e,
                           child: Row(
                             children: [
-                              /// COLORED DOT
                               Container(
                                 width: 10,
                                 height: 10,
@@ -496,10 +476,7 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
                                   shape: BoxShape.circle,
                                 ),
                               ),
-
                               const SizedBox(width: 10),
-
-                              /// LEAVE TEXT
                               Text(
                                 e,
                                 style: TextStyle(
@@ -517,10 +494,7 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
                         });
                       },
                     ),
-
                     const SizedBox(height: 14),
-
-                    /// REASON FIELD
                     TextField(
                       controller: reasonController,
                       maxLines: 3,
@@ -547,13 +521,9 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 14),
-
-                    /// DATE PICKERS
                     Row(
                       children: [
-                        /// FROM DATE
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: () => pickDate(true),
@@ -580,10 +550,7 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
                             ),
                           ),
                         ),
-
                         const SizedBox(width: 10),
-
-                        /// TO DATE
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: () => pickDate(false),
@@ -612,8 +579,6 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
                         ),
                       ],
                     ),
-
-                    /// DURATION
                     if (calculateDays() > 0)
                       Padding(
                         padding: const EdgeInsets.only(top: 12),
@@ -632,8 +597,7 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
                               ),
                             ),
                             child: Row(
-                              mainAxisSize: MainAxisSize
-                                  .min, // VERY IMPORTANT for centering
+                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 const Icon(
                                   Icons.timelapse_rounded,
@@ -655,8 +619,6 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
                         ),
                       ),
                     const SizedBox(height: 14),
-
-                    /// FILE UPLOAD
                     Center(
                       child: OutlinedButton.icon(
                         onPressed: pickFile,
@@ -693,10 +655,7 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 16),
-
-                    /// SUBMIT BUTTON
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
@@ -704,13 +663,10 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
                             ? null
                             : () async {
                                 if (!mounted) return;
-
-                                /// START LOADING STATE
                                 setState(() {
                                   loading = true;
                                 });
 
-                                /// SHOW LOADER DIALOG
                                 showDialog(
                                   context: context,
                                   barrierDismissible: false,
@@ -720,19 +676,15 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
                                 );
 
                                 try {
-                                  /// CALL SUBMIT FUNCTION
                                   await submitLeave();
                                 } catch (e) {
                                   debugPrint("Submit error: $e");
                                 } finally {
-                                  /// ALWAYS CLOSE LOADER
                                   if (mounted) {
                                     Navigator.of(
                                       context,
                                       rootNavigator: true,
                                     ).pop();
-
-                                    /// STOP LOADING STATE
                                     setState(() {
                                       loading = false;
                                     });
@@ -795,9 +747,7 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
               StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection("leaves")
-                    .where("studentId",
-                        isEqualTo:
-                            user?.uid) // Using studentId to match your data
+                    .where("studentId", isEqualTo: user?.uid)
                     .orderBy("timestamp", descending: true)
                     .snapshots(),
                 builder: (context, snapshot) {
@@ -1053,7 +1003,6 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
                               ),
                             ),
 
-                            /// TITLE
                             title: Text(
                               leaveType,
                               style: const TextStyle(
@@ -1063,13 +1012,10 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
                               ),
                             ),
 
-                            /// DETAILS
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const SizedBox(height: 6),
-
-                                /// REASON ROW
                                 Row(
                                   children: [
                                     const Icon(
@@ -1092,10 +1038,7 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
                                     ),
                                   ],
                                 ),
-
                                 const SizedBox(height: 6),
-
-                                /// DATE + DAYS ROW (ALIGNED)
                                 Row(
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
@@ -1119,15 +1062,10 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
                                     ),
                                   ],
                                 ),
-
                                 const SizedBox(height: 2),
-
-                                /// DAYS ROW (SEPARATE LINE — CLEAN ALIGNMENT)
                                 Row(
                                   children: [
-                                    const SizedBox(
-                                        width: 20), // aligns under date text
-
+                                    const SizedBox(width: 20),
                                     Text(
                                       '• $daysCount day${daysCount > 1 ? 's' : ''}',
                                       style: TextStyle(
@@ -1141,11 +1079,9 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
                               ],
                             ),
 
-                            /// RIGHT SIDE
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                /// DELETE OR STATUS (unchanged logic)
                                 status == "Pending"
                                     ? Container(
                                         decoration: BoxDecoration(
@@ -1190,10 +1126,7 @@ class _LeaveManagementScreenState extends State<LeaveManagementScreen> {
                                           ),
                                         ),
                                       ),
-
                                 const SizedBox(width: 8),
-
-                                /// BOLD COLORFUL ARROW INDICATOR
                                 Container(
                                   padding: const EdgeInsets.all(6),
                                   decoration: BoxDecoration(

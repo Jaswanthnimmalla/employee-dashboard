@@ -3,29 +3,32 @@ import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthenticationService {
-  final LocalAuthentication _auth = LocalAuthentication(); // Fixed: Added ()
+  final LocalAuthentication _auth = LocalAuthentication();
 
   Future<bool> isBiometricAvailable() async {
     try {
-      bool canCheck = await _auth.canCheckBiometrics;
-      bool isSupported = await _auth.isDeviceSupported();
-      return canCheck && isSupported;
+      final isSupported = await _auth.isDeviceSupported();
+      if (!isSupported) return false;
+
+      final availableBiometrics = await _auth.getAvailableBiometrics();
+      return availableBiometrics.isNotEmpty;
     } catch (e) {
       return false;
     }
   }
 
-  Future<bool> authenticateUser() async {
+  Future<String> authenticateUser() async {
     try {
-      return await _auth.authenticate(
+      final isAuthenticated = await _auth.authenticate(
         localizedReason: 'Please authenticate to access the app',
         options: const AuthenticationOptions(
           biometricOnly: true,
           stickyAuth: true,
         ),
       );
+      return isAuthenticated ? 'success' : 'failed';
     } catch (e) {
-      return false;
+      return 'error';
     }
   }
 }
@@ -39,7 +42,6 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final AuthenticationService _authService = AuthenticationService();
-
   bool biometricEnabled = false;
   bool notificationsEnabled = true;
   bool darkModeEnabled = false;
@@ -52,7 +54,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
-
     setState(() {
       biometricEnabled = prefs.getBool('biometricEnabled') ?? false;
       notificationsEnabled = prefs.getBool('notificationsEnabled') ?? true;
@@ -64,54 +65,91 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final prefs = await SharedPreferences.getInstance();
 
     if (value) {
-      bool available = await _authService.isBiometricAvailable();
+      final isAvailable = await _authService.isBiometricAvailable();
 
-      if (!available) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Biometric authentication not available'),
-          ),
+      if (!isAvailable) {
+        _showDialog(
+          'Biometric Not Available',
+          'No fingerprint or face recognition found on this device.\n\nPlease enroll biometrics in device settings first.',
+          Icons.fingerprint,
         );
         return;
       }
 
-      bool authenticated = await _authService.authenticateUser();
+      final result = await _authService.authenticateUser();
 
-      if (!authenticated) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Authentication failed'),
-          ),
-        );
-        return;
+      if (result == 'success') {
+        await prefs.setBool('biometricEnabled', value);
+        setState(() {
+          biometricEnabled = value;
+        });
+        _showSnackBar('Biometric lock enabled successfully!', Colors.green);
+      } else if (result == 'failed') {
+        _showSnackBar('Authentication failed. Please try again.', Colors.red);
+      } else {
+        _showSnackBar('Authentication error. Please try again.', Colors.red);
       }
+    } else {
+      await prefs.setBool('biometricEnabled', value);
+      setState(() {
+        biometricEnabled = value;
+      });
+      _showSnackBar('Biometric lock disabled', Colors.orange);
     }
+  }
 
-    await prefs.setBool('biometricEnabled', value);
+  void _showDialog(String title, String message, IconData icon) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(icon, color: Colors.orange),
+            const SizedBox(width: 10),
+            Text(title),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
 
-    setState(() {
-      biometricEnabled = value;
-    });
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   Future<void> _toggleNotifications(bool value) async {
     final prefs = await SharedPreferences.getInstance();
-
     await prefs.setBool('notificationsEnabled', value);
-
     setState(() {
       notificationsEnabled = value;
     });
+    _showSnackBar(value ? 'Notifications enabled' : 'Notifications disabled',
+        Colors.blue);
   }
 
   Future<void> _toggleDarkMode(bool value) async {
     final prefs = await SharedPreferences.getInstance();
-
     await prefs.setBool('darkModeEnabled', value);
-
     setState(() {
       darkModeEnabled = value;
     });
+    _showSnackBar(
+        value ? 'Dark mode enabled' : 'Dark mode disabled', Colors.blue);
   }
 
   Widget _buildToggleTile({

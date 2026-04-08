@@ -1,4 +1,3 @@
-// lib/dashboard/presentation/widgets/attendance_list.dart
 import 'package:employee_dashboard_app/core/constants/app_colors.dart';
 import 'package:employee_dashboard_app/dashboard/data/models/attendance_model.dart';
 import 'package:flutter/material.dart';

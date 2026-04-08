@@ -1,9 +1,15 @@
 import 'package:employee_dashboard_app/admin/data/presentation/provider/admin_provider.dart';
+import 'package:employee_dashboard_app/admin/data/presentation/screens/admin_about_screen.dart';
+import 'package:employee_dashboard_app/admin/data/presentation/screens/admin_blogs_screen.dart';
+import 'package:employee_dashboard_app/admin/data/presentation/screens/admin_contact_us_screen.dart';
+import 'package:employee_dashboard_app/admin/data/presentation/screens/admin_profile_screen.dart';
+import 'package:employee_dashboard_app/admin/data/presentation/screens/attendance_statistics_screen.dart';
 import 'package:employee_dashboard_app/admin/data/presentation/screens/manage_attendance_screen.dart';
 import 'package:employee_dashboard_app/admin/data/presentation/screens/manage_employees_screen.dart';
 import 'package:employee_dashboard_app/admin/data/presentation/screens/manage_leave_requests_screen.dart';
 import 'package:employee_dashboard_app/admin/data/presentation/screens/manage_requests_screen.dart';
 import 'package:employee_dashboard_app/admin/data/presentation/screens/reports_screen.dart';
+import 'package:employee_dashboard_app/core/utils/attendance_time_logic.dart';
 import 'package:employee_dashboard_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -28,6 +34,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   bool _isLoadingProfile = true; // ADD THIS LINE
   final Color _adminColor = const Color(0xFFE74C3C);
   final Color _backgroundColor = const Color(0xFFF5F6FA);
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   late List<Widget> _screens;
   late List<String> _titles;
@@ -49,7 +56,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       const ReportsScreen(),
     ];
     _titles = [
-      'Dashboard',
+      'Admin Dashboard',
       'Manage Employees',
       'Manage Attendance',
       'Leave Requests',
@@ -214,8 +221,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       child: PopScope(
         canPop: false,
         child: Scaffold(
+          key: _scaffoldKey,
           backgroundColor: _backgroundColor,
           appBar: _buildAppBar(isSmall),
+          drawer: isSmall ? _buildDrawer() : null,
           body: Row(
             children: [
               if (!isSmall)
@@ -298,6 +307,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   PreferredSizeWidget _buildAppBar(bool isSmall) {
     return AppBar(
       automaticallyImplyLeading: false,
+      leading: isSmall
+          ? IconButton(
+              icon: const Icon(Icons.menu, color: Colors.white),
+              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+            )
+          : null,
       centerTitle: true,
       elevation: 6,
       backgroundColor: const Color(0xFFC0392B),
@@ -489,6 +504,348 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  Widget _buildDrawer() {
+    return Drawer(
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topRight: Radius.circular(28),
+          bottomRight: Radius.circular(28),
+        ),
+      ),
+      backgroundColor: Colors.white,
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Color(0xFF6C5CE7),
+                  Color(0xFF8E2DE2),
+                  Color(0xFFFF7043)
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: Column(
+              children: [
+                // Profile Image
+                Container(
+                  width: 90,
+                  height: 90,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 3),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 15,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: ClipOval(
+                    child: profileImageUrl.trim().isNotEmpty
+                        ? Image.network(
+                            profileImageUrl.trim(),
+                            fit: BoxFit.cover,
+                            width: 90,
+                            height: 90,
+                            errorBuilder: (_, __, ___) => Container(
+                              color: Colors.white24,
+                              child: const Icon(
+                                Icons.admin_panel_settings,
+                                color: Colors.white,
+                                size: 45,
+                              ),
+                            ),
+                          )
+                        : Container(
+                            color: Colors.white24,
+                            child: const Icon(
+                              Icons.admin_panel_settings,
+                              color: Colors.white,
+                              size: 45,
+                            ),
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  adminName.isEmpty ? 'Admin User' : adminName,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text(
+                    'Administrator',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Email
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.email_outlined, size: 12, color: Colors.white70),
+                    const SizedBox(width: 4),
+                    Text(
+                      adminEmail.isEmpty ? 'admin@example.com' : adminEmail,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                const SizedBox(height: 8),
+                _buildDrawerItem(
+                  Icons.dashboard_rounded,
+                  'Dashboard',
+                  () {
+                    setState(() {
+                      _selectedIndex = 0;
+                    });
+                    Navigator.pop(context);
+                  },
+                  isActive: _selectedIndex == 0,
+                ),
+                _buildDrawerItem(
+                  Icons.people_rounded,
+                  'Manage Employees',
+                  () {
+                    setState(() {
+                      _selectedIndex = 1;
+                    });
+                    Navigator.pop(context);
+                  },
+                  isActive: _selectedIndex == 1,
+                ),
+                _buildDrawerItem(
+                  Icons.fingerprint_rounded,
+                  'Manage Attendance',
+                  () {
+                    setState(() {
+                      _selectedIndex = 2;
+                    });
+                    Navigator.pop(context);
+                  },
+                  isActive: _selectedIndex == 2,
+                ),
+                _buildDrawerItem(
+                  Icons.analytics_rounded,
+                  'Attendance Statistics',
+                  () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            const AttendanceStatisticsScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildDrawerItem(
+                  Icons.event_note_rounded,
+                  'Leave Requests',
+                  () {
+                    setState(() {
+                      _selectedIndex = 3;
+                    });
+                    Navigator.pop(context);
+                  },
+                  isActive: _selectedIndex == 3,
+                ),
+                _buildDrawerItem(
+                  Icons.request_page_rounded,
+                  'Manage Requests',
+                  () {
+                    setState(() {
+                      _selectedIndex = 4;
+                    });
+                    Navigator.pop(context);
+                  },
+                  isActive: _selectedIndex == 4,
+                ),
+                _buildDrawerItem(
+                  Icons.bar_chart_rounded,
+                  'Reports',
+                  () {
+                    setState(() {
+                      _selectedIndex = 5;
+                    });
+                    Navigator.pop(context);
+                  },
+                  isActive: _selectedIndex == 5,
+                ),
+                const Divider(
+                    height: 24, thickness: 1, indent: 20, endIndent: 20),
+                _buildDrawerItem(
+                  Icons.person_rounded,
+                  'Profile',
+                  () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const AdminProfileScreen()),
+                    );
+                  },
+                ),
+                _buildDrawerItem(
+                  Icons.article_rounded,
+                  'Blogs',
+                  () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const AdminBlogsScreen()),
+                    );
+                  },
+                ),
+                _buildDrawerItem(
+                  Icons.contact_mail_rounded,
+                  'Contact Us',
+                  () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const AdminContactUsScreen()),
+                    );
+                  },
+                ),
+                _buildDrawerItem(
+                  Icons.info_rounded,
+                  'About',
+                  () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const AdminAboutScreen()),
+                    );
+                  },
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+          Container(
+            margin: const EdgeInsets.all(16),
+            child: InkWell(
+              onTap: _logout,
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFE74C3C), Color(0xFFC0392B)],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFE74C3C).withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.logout_rounded, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Logout',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDrawerItem(IconData icon, String title, VoidCallback onTap,
+      {bool isActive = false}) {
+    final Color itemColor =
+        isActive ? const Color(0xFF6C5CE7) : Colors.grey.shade700;
+    final Color bgColor = isActive
+        ? const Color(0xFF6C5CE7).withOpacity(0.1)
+        : Colors.transparent;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(14),
+        border: isActive
+            ? Border.all(
+                color: const Color(0xFF6C5CE7).withOpacity(0.3), width: 1)
+            : null,
+      ),
+      child: ListTile(
+        leading: Icon(icon, color: itemColor, size: 22),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: itemColor,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+            fontSize: 14,
+          ),
+        ),
+        trailing: isActive
+            ? Container(
+                width: 6,
+                height: 6,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF6C5CE7),
+                  shape: BoxShape.circle,
+                ),
+              )
+            : null,
+        onTap: onTap,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+    );
+  }
+
   Widget _buildRequestNotification(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -514,7 +871,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 }
 
-// Dashboard Home Component
 class _DashboardHome extends StatefulWidget {
   const _DashboardHome();
 
@@ -530,7 +886,7 @@ class _DashboardHomeState extends State<_DashboardHome> {
   @override
   void initState() {
     super.initState();
-    _loadAdminData(); // only one function
+    _loadAdminData();
   }
 
   Future<void> _loadAdminData() async {
@@ -601,19 +957,12 @@ class _DashboardHomeState extends State<_DashboardHome> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. Welcome Header
                 _buildWelcomeHeader(size),
                 const SizedBox(height: 20),
-
-                // 2. Statistics Section
                 _buildStatsOverview(),
                 const SizedBox(height: 20),
-
-                // 3. Quick Actions (Feature Grid)
                 _buildFeatureGrid(context),
                 const SizedBox(height: 20),
-
-                // 4. Recent Activity
                 _buildRecentActivity(size),
               ],
             ),
@@ -658,12 +1007,10 @@ class _DashboardHomeState extends State<_DashboardHome> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          /// LEFT CONTENT
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                /// GREETING
                 Row(
                   children: [
                     const Text(
@@ -683,10 +1030,7 @@ class _DashboardHomeState extends State<_DashboardHome> {
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 10),
-
-                /// ADMIN NAME
                 Row(
                   children: [
                     const Icon(
@@ -708,10 +1052,7 @@ class _DashboardHomeState extends State<_DashboardHome> {
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 16),
-
-                /// TIME + ROLE
                 Wrap(
                   spacing: 14,
                   runSpacing: 10,
@@ -749,7 +1090,6 @@ class _DashboardHomeState extends State<_DashboardHome> {
                       ),
                     ),
 
-                    /// ROLE CHIP
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -786,8 +1126,6 @@ class _DashboardHomeState extends State<_DashboardHome> {
               ],
             ),
           ),
-
-          /// RIGHT SIDE ICON (RESPONSIVE)
           Container(
             margin: const EdgeInsets.only(left: 12),
             padding: EdgeInsets.all(size.width < 600 ? 16 : 20),
@@ -1120,54 +1458,138 @@ class _DashboardHomeState extends State<_DashboardHome> {
           .where('role', isEqualTo: 'Team Member')
           .snapshots(),
       builder: (context, employeeSnapshot) {
-        final totalEmployees = employeeSnapshot.data?.docs.length ?? 0;
+        if (!employeeSnapshot.hasData) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        final employees = employeeSnapshot.data!.docs;
+        final totalEmployees = employees.length;
+
+        final now = DateTime.now();
+
+        final startOfDay = DateTime(
+          now.year,
+          now.month,
+          now.day,
+        );
+
+        final endOfDay = DateTime(
+          now.year,
+          now.month,
+          now.day,
+          23,
+          59,
+          59,
+        );
 
         return StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance
               .collection('attendance')
               .where(
                 'date',
-                isGreaterThanOrEqualTo: Timestamp.fromDate(DateTime(
-                  DateTime.now().year,
-                  DateTime.now().month,
-                  DateTime.now().day,
-                )),
+                isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay),
               )
               .where(
                 'date',
-                isLessThanOrEqualTo: Timestamp.fromDate(DateTime(
-                  DateTime.now().year,
-                  DateTime.now().month,
-                  DateTime.now().day,
-                  23,
-                  59,
-                  59,
-                )),
+                isLessThanOrEqualTo: Timestamp.fromDate(endOfDay),
               )
               .snapshots(),
           builder: (context, attendanceSnapshot) {
-            final attendanceDocs = attendanceSnapshot.data?.docs ?? [];
+            if (!attendanceSnapshot.hasData) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(20),
+                  child: CircularProgressIndicator(),
+                ),
+              );
+            }
 
-            /// UNIQUE PRESENT EMPLOYEES
-            final presentToday = attendanceDocs
-                .where((doc) => doc.get('checkInTime') != null)
-                .map((doc) => doc.get('userId'))
-                .toSet()
-                .length;
+            final attendanceDocs = attendanceSnapshot.data!.docs;
+            final Map<String, String> employeeStatus = {};
 
-            /// UNIQUE TOTAL EMPLOYEES
+            for (final employee in employees) {
+              employeeStatus[employee.id] = 'Absent';
+            }
+
+            for (final doc in attendanceDocs) {
+              final userId = doc.get('userId');
+
+              if (!employeeStatus.containsKey(userId)) {
+                continue;
+              }
+
+              if (doc.get('checkInTime') != null) {
+                final checkIn = (doc.get('checkInTime') as Timestamp).toDate();
+
+                final data = doc.data() as Map<String, dynamic>;
+
+                final status = data['status']?.toString() ?? 'Absent';
+
+                employeeStatus[userId] = status;
+              }
+            }
+
+            int presentToday = 0;
+            int lateToday = 0;
+            int veryLateToday = 0;
+            int halfDayToday = 0;
+            int absentToday = 0;
+
+            final now = DateTime.now();
+
+            final cutoff = DateTime(
+              now.year,
+              now.month,
+              now.day,
+              11,
+              40,
+            );
+
+            for (final status in employeeStatus.values) {
+              switch (status) {
+                case 'Present':
+                  presentToday++;
+                  break;
+
+                case 'Late':
+                  lateToday++;
+                  break;
+
+                case 'Very Late':
+                  veryLateToday++;
+                  break;
+
+                case 'Half Day':
+                  halfDayToday++;
+                  break;
+
+                case 'Absent':
+                  absentToday++;
+                  break;
+
+                default:
+                  break;
+              }
+            }
+
             final totalEmployeesCount = employeeSnapshot.data?.docs
                     .map((doc) => doc.id)
                     .toSet()
                     .length ??
                 0;
 
-            /// ATTENDANCE RATE
+            final attendedCount =
+                presentToday + lateToday + veryLateToday + halfDayToday;
+
             double attendanceRate = totalEmployeesCount > 0
-                ? (presentToday / totalEmployeesCount) * 100
+                ? (attendedCount / totalEmployeesCount) * 100
                 : 0.0;
 
-            // ========== NEW: REAL-TIME ON LEAVE TODAY FROM LEAVES COLLECTION ==========
             return StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('leaves')
@@ -1189,7 +1611,6 @@ class _DashboardHomeState extends State<_DashboardHome> {
                       final from = fromDate.toDate();
                       final to = toDate.toDate();
 
-                      // Check if today falls within the leave period
                       if ((from.isBefore(todayEnd) && to.isAfter(todayStart)) ||
                           (from.day == today.day &&
                               from.month == today.month &&
@@ -1202,7 +1623,16 @@ class _DashboardHomeState extends State<_DashboardHome> {
                     }
                   }
                 }
-                // ========== END OF ON LEAVE CALCULATION ==========
+
+                absentToday = absentToday - onLeaveToday;
+
+                if (absentToday < 0) {
+                  absentToday = 0;
+                }
+
+                if (absentToday < 0) {
+                  absentToday = 0;
+                }
 
                 return StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
@@ -1266,6 +1696,30 @@ class _DashboardHomeState extends State<_DashboardHome> {
                                 const Color(0xFF27AE60),
                               ),
                               _statItem(
+                                "Absent Today",
+                                absentToday.toString(),
+                                Icons.cancel,
+                                Colors.red,
+                              ),
+                              _statItem(
+                                "Late Today",
+                                lateToday.toString(),
+                                Icons.access_time,
+                                Colors.orange,
+                              ),
+                              _statItem(
+                                "Very Late",
+                                veryLateToday.toString(),
+                                Icons.watch_later,
+                                Colors.deepOrange,
+                              ),
+                              _statItem(
+                                "Half Day",
+                                halfDayToday.toString(),
+                                Icons.hourglass_bottom,
+                                Colors.purple,
+                              ),
+                              _statItem(
                                 "On Leave Today",
                                 onLeaveToday.toString(),
                                 Icons.beach_access,
@@ -1306,8 +1760,6 @@ class _DashboardHomeState extends State<_DashboardHome> {
                                     ),
                                   ),
                                 ),
-
-                                /// ---------- STATISTICS GRID ----------
                                 GridView.builder(
                                   shrinkWrap: true,
                                   physics: const NeverScrollableScrollPhysics(),
@@ -1341,10 +1793,8 @@ class _DashboardHomeState extends State<_DashboardHome> {
                                     );
                                   },
                                 ),
-
                                 const SizedBox(height: 14),
-
-                                /// ---------- PENDING REQUEST CARD ----------
+                                const SizedBox(height: 14),
                                 Container(
                                   width: double.infinity,
                                   padding: const EdgeInsets.symmetric(
@@ -1422,10 +1872,7 @@ class _DashboardHomeState extends State<_DashboardHome> {
                                     ],
                                   ),
                                 ),
-
-                                const SizedBox(height: 14),
-
-                                /// ---------- ATTENDANCE RATE CARD ----------
+                                const SizedBox(height: 20),
                                 Container(
                                   decoration: BoxDecoration(
                                     color: Colors.white,
@@ -1444,7 +1891,6 @@ class _DashboardHomeState extends State<_DashboardHome> {
                                   ),
                                   child: _attendanceRateCard(attendanceRate),
                                 ),
-
                                 const SizedBox(height: 6),
                               ],
                             );
@@ -1599,6 +2045,40 @@ class _DashboardHomeState extends State<_DashboardHome> {
     );
   }
 
+  Map<String, double> calculateOvertimeEarlyLeave(
+    DateTime checkIn,
+    DateTime checkOut,
+  ) {
+    final officeEnd = DateTime(
+      checkOut.year,
+      checkOut.month,
+      checkOut.day,
+      18,
+      0,
+    );
+
+    final totalMinutes = checkOut.difference(checkIn).inMinutes;
+
+    final totalHours = totalMinutes / 60.0;
+
+    double overtime = 0;
+    double earlyLeave = 0;
+
+    if (checkOut.isAfter(officeEnd)) {
+      overtime = checkOut.difference(officeEnd).inMinutes / 60.0;
+    }
+
+    if (checkOut.isBefore(officeEnd)) {
+      earlyLeave = officeEnd.difference(checkOut).inMinutes / 60.0;
+    }
+
+    return {
+      'totalHours': totalHours,
+      'overtime': overtime,
+      'earlyLeave': earlyLeave,
+    };
+  }
+
   Widget _buildRecentActivity(Size size) {
     return Container(
       width: double.infinity,
@@ -1624,7 +2104,6 @@ class _DashboardHomeState extends State<_DashboardHome> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          /// HEADER
           Row(
             children: const [
               Icon(
@@ -1644,10 +2123,7 @@ class _DashboardHomeState extends State<_DashboardHome> {
               ),
             ],
           ),
-
           const SizedBox(height: 12),
-
-          /// ACTIVITY LIST
           StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('leaves')
@@ -1759,7 +2235,6 @@ class _DashboardHomeState extends State<_DashboardHome> {
                     ),
                     child: Row(
                       children: [
-                        /// STATUS ICON
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -11,6 +13,7 @@ class ReportsScreen extends StatefulWidget {
 }
 
 class _ReportsScreenState extends State<ReportsScreen> {
+  Timer? _refreshTimer;
   DateTime _startDate = DateTime.now().subtract(const Duration(days: 30));
 
   DateTime _endDate = DateTime.now();
@@ -28,10 +31,42 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
     if (picked != null) {
       setState(() {
-        _startDate = picked.start;
-        _endDate = picked.end;
+        _startDate = DateTime(
+          picked.start.year,
+          picked.start.month,
+          picked.start.day,
+        );
+
+        _endDate = DateTime(
+          picked.end.year,
+          picked.end.month,
+          picked.end.day,
+          23,
+          59,
+          59,
+        );
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    _refreshTimer = Timer.periodic(
+      const Duration(minutes: 1),
+      (_) {
+        if (mounted) {
+          setState(() {});
+        }
+      },
+    );
   }
 
   @override
@@ -106,12 +141,28 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 ),
                 ElevatedButton.icon(
                   onPressed: _selectDateRange,
-                  icon: const Icon(Icons.date_range),
-                  label: const Text("Select Date"),
+                  icon: const Icon(
+                    Icons.date_range,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  label: const Text(
+                    "Select Date",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.deepPurple,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                   ),
-                ),
+                )
               ],
             ),
             const SizedBox(height: 12),
@@ -133,80 +184,172 @@ class _ReportsScreenState extends State<ReportsScreen> {
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
-                    .collection('attendance')
+                    .collection('users')
+                    .where('isActive', isEqualTo: true)
                     .snapshots(),
-                builder: (context, attendanceSnapshot) {
-                  if (!attendanceSnapshot.hasData) {
+                builder: (context, usersSnapshot) {
+                  if (!usersSnapshot.hasData) {
                     return const Center(
                       child: CircularProgressIndicator(),
                     );
                   }
 
-                  final attendanceDocs = attendanceSnapshot.data!.docs;
-
-                  int present = attendanceDocs.where((doc) {
-                    final status = doc['status'].toString().toLowerCase();
-
-                    return status == 'present';
-                  }).length;
-
-                  int absent = attendanceDocs.where((doc) {
-                    final status = doc['status'].toString().toLowerCase();
-
-                    return status == 'absent';
-                  }).length;
-
+                  final int totalEmployees = usersSnapshot.data!.docs.length;
                   return StreamBuilder<QuerySnapshot>(
                     stream: FirebaseFirestore.instance
-                        .collection('leaves')
+                        .collection('attendance')
+                        .where(
+                          'checkInTime',
+                          isGreaterThanOrEqualTo:
+                              Timestamp.fromDate(_startDate),
+                        )
+                        .where(
+                          'checkInTime',
+                          isLessThanOrEqualTo: Timestamp.fromDate(_endDate),
+                        )
                         .snapshots(),
-                    builder: (context, leaveSnapshot) {
-                      if (!leaveSnapshot.hasData) {
+                    builder: (context, attendanceSnapshot) {
+                      if (!attendanceSnapshot.hasData) {
                         return const Center(
                           child: CircularProgressIndicator(),
                         );
                       }
 
-                      final leaveDocs = leaveSnapshot.data!.docs;
+                      final attendanceDocs = attendanceSnapshot.data!.docs;
 
-                      int approved = leaveDocs.where((doc) {
-                        return doc['status'].toString().toLowerCase() ==
-                            'approved';
-                      }).length;
+                      final Map<String, String> employeeStatus = {};
 
-                      int rejected = leaveDocs.where((doc) {
-                        return doc['status'].toString().toLowerCase() ==
-                            'rejected';
-                      }).length;
+                      for (var doc in attendanceDocs) {
+                        final userId = doc['userId']?.toString() ?? '';
 
-                      int pending = leaveDocs.where((doc) {
-                        return doc['status'].toString().toLowerCase() ==
-                            'pending';
-                      }).length;
+                        if (userId.isEmpty) continue;
 
-                      return ListView(
-                        children: [
-                          _summaryCard(
-                            present,
-                            absent,
-                            approved,
-                            rejected,
-                            pending,
-                          ),
-                          const SizedBox(height: 20),
-                          _attendanceBarChart(
-                            present,
-                            absent,
-                          ),
-                          const SizedBox(height: 20),
-                          _leavePieChart(
-                            approved,
-                            rejected,
-                            pending,
-                          ),
-                          const SizedBox(height: 20),
-                          _trendLineChart(),
-                        ],
+                        if (doc['checkInTime'] != null) {
+                          final checkIn =
+                              (doc['checkInTime'] as Timestamp).toDate();
+
+                          final minutes = checkIn.hour * 60 + checkIn.minute;
+
+                          if (minutes <= 9 * 60 + 40) {
+                            employeeStatus[userId] = 'Present';
+                          } else if (minutes <= 10 * 60 + 44) {
+                            employeeStatus[userId] = 'Late';
+                          } else if (minutes <= 11 * 60 + 39) {
+                            employeeStatus[userId] = 'Very Late';
+                          } else {
+                            employeeStatus[userId] = 'Half Day';
+                          }
+                        } else {
+                          employeeStatus[userId] = 'Absent';
+                        }
+                      }
+
+                      int present = 0;
+                      int late = 0;
+                      int veryLate = 0;
+                      int halfDay = 0;
+                      int absent = 0;
+
+                      for (final status in employeeStatus.values) {
+                        switch (status) {
+                          case 'Present':
+                            present++;
+                            break;
+
+                          case 'Late':
+                            late++;
+                            break;
+
+                          case 'Very Late':
+                            veryLate++;
+                            break;
+
+                          case 'Half Day':
+                            halfDay++;
+                            break;
+
+                          case 'Absent':
+                            absent++;
+                            break;
+                        }
+                      }
+
+                      final int notMarked =
+                          totalEmployees - employeeStatus.length;
+
+                      if (notMarked > 0) {
+                        absent += notMarked;
+                      }
+
+                      return StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('leaves')
+                            .snapshots(),
+                        builder: (context, leaveSnapshot) {
+                          if (!leaveSnapshot.hasData) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
+
+                          final leaveDocs = leaveSnapshot.data!.docs;
+
+                          int approved = leaveDocs
+                              .where(
+                                (doc) =>
+                                    doc['status'].toString().toLowerCase() ==
+                                    'approved',
+                              )
+                              .length;
+
+                          int rejected = leaveDocs
+                              .where(
+                                (doc) =>
+                                    doc['status'].toString().toLowerCase() ==
+                                    'rejected',
+                              )
+                              .length;
+
+                          int pending = leaveDocs
+                              .where(
+                                (doc) =>
+                                    doc['status'].toString().toLowerCase() ==
+                                    'pending',
+                              )
+                              .length;
+
+                          return ListView(
+                            children: [
+                              _summaryCard(
+                                totalEmployees,
+                                present,
+                                late,
+                                veryLate,
+                                halfDay,
+                                absent,
+                                approved,
+                                rejected,
+                                pending,
+                              ),
+                              const SizedBox(height: 20),
+                              _attendanceBarChart(
+                                present,
+                                late,
+                                veryLate,
+                                halfDay,
+                                absent,
+                              ),
+                              const SizedBox(height: 20),
+                              _leavePieChart(
+                                approved,
+                                rejected,
+                                pending,
+                              ),
+                              const SizedBox(height: 20),
+                              _trendLineChart(),
+                            ],
+                          );
+                        },
                       );
                     },
                   );
@@ -220,18 +363,22 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Widget _summaryCard(
+    int totalEmployees,
     int present,
+    int late,
+    int veryLate,
+    int halfDay,
     int absent,
     int approved,
     int rejected,
     int pending,
   ) {
-    final total = present + absent;
+    final attendedCount = present + late + veryLate + halfDay;
 
-    double attendanceRate = total > 0 ? (present / total) * 100 : 0;
+    double attendanceRate =
+        totalEmployees > 0 ? (attendedCount / totalEmployees) * 100 : 0.0;
 
     final totalLeaves = approved + rejected + pending;
-
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
@@ -299,6 +446,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   Widget _attendanceBarChart(
     int present,
+    int late,
+    int veryLate,
+    int halfDay,
     int absent,
   ) {
     return _chartContainer(
@@ -316,7 +466,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   BarChartRodData(
                     toY: present.toDouble(),
                     color: Colors.green,
-                    width: 28,
+                    width: 20,
                   ),
                 ],
               ),
@@ -324,9 +474,39 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 x: 1,
                 barRods: [
                   BarChartRodData(
+                    toY: late.toDouble(),
+                    color: Colors.orange,
+                    width: 20,
+                  ),
+                ],
+              ),
+              BarChartGroupData(
+                x: 2,
+                barRods: [
+                  BarChartRodData(
+                    toY: veryLate.toDouble(),
+                    color: Colors.deepOrange,
+                    width: 20,
+                  ),
+                ],
+              ),
+              BarChartGroupData(
+                x: 3,
+                barRods: [
+                  BarChartRodData(
+                    toY: halfDay.toDouble(),
+                    color: Colors.purple,
+                    width: 20,
+                  ),
+                ],
+              ),
+              BarChartGroupData(
+                x: 4,
+                barRods: [
+                  BarChartRodData(
                     toY: absent.toDouble(),
                     color: Colors.red,
-                    width: 28,
+                    width: 20,
                   ),
                 ],
               ),
@@ -380,23 +560,141 @@ class _ReportsScreenState extends State<ReportsScreen> {
       Colors.deepPurple,
       SizedBox(
         height: 220,
-        child: LineChart(
-          LineChartData(
-            lineBarsData: [
-              LineChartBarData(
-                spots: const [
-                  FlSpot(0, 5),
-                  FlSpot(1, 8),
-                  FlSpot(2, 6),
-                  FlSpot(3, 10),
-                  FlSpot(4, 7),
+        child: StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('attendance')
+              .where(
+                'checkInTime',
+                isGreaterThanOrEqualTo: Timestamp.fromDate(_startDate),
+              )
+              .where(
+                'checkInTime',
+                isLessThanOrEqualTo: Timestamp.fromDate(_endDate),
+              )
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const Center(
+                child: CircularProgressIndicator(),
+              );
+            }
+
+            final docs = snapshot.data!.docs;
+
+            final Map<DateTime, int> dailyCounts = {};
+
+            for (var doc in docs) {
+              if (doc['checkInTime'] != null) {
+                final checkIn = (doc['checkInTime'] as Timestamp).toDate();
+
+                if (checkIn.isBefore(_startDate) || checkIn.isAfter(_endDate)) {
+                  continue;
+                }
+
+                final day = DateTime(
+                  checkIn.year,
+                  checkIn.month,
+                  checkIn.day,
+                );
+
+                dailyCounts[day] = (dailyCounts[day] ?? 0) + 1;
+              }
+            }
+
+            if (dailyCounts.isEmpty) {
+              return const Center(
+                child: Text(
+                  "No attendance data",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              );
+            }
+
+            final sortedDates = dailyCounts.keys.toList()..sort();
+
+            final spots = <FlSpot>[];
+
+            for (int i = 0; i < sortedDates.length; i++) {
+              final date = sortedDates[i];
+
+              spots.add(
+                FlSpot(
+                  i.toDouble(),
+                  dailyCounts[date]!.toDouble(),
+                ),
+              );
+            }
+
+            return LineChart(
+              LineChartData(
+                minY: 0,
+                maxY: spots.isNotEmpty
+                    ? spots.map((e) => e.y).reduce((a, b) => a > b ? a : b) + 1
+                    : 1,
+                gridData: FlGridData(
+                  show: true,
+                  drawHorizontalLine: true,
+                  drawVerticalLine: false,
+                ),
+                borderData: FlBorderData(
+                  show: false,
+                ),
+                titlesData: FlTitlesData(
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 32,
+                      getTitlesWidget: (value, meta) {
+                        if (value.toInt() < sortedDates.length) {
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              DateFormat('dd MMM')
+                                  .format(sortedDates[value.toInt()]),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          );
+                        }
+                        return const SizedBox();
+                      },
+                    ),
+                  ),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 28,
+                    ),
+                  ),
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                ),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: spots,
+                    isCurved: true,
+                    color: Colors.deepPurple,
+                    barWidth: 5,
+                    isStrokeCapRound: true,
+                    dotData: const FlDotData(
+                      show: true,
+                    ),
+                    belowBarData: BarAreaData(
+                      show: false,
+                    ),
+                  ),
                 ],
-                isCurved: true,
-                color: Colors.deepPurple,
-                barWidth: 4,
               ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

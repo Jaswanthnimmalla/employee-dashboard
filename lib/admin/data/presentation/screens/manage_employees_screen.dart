@@ -17,6 +17,22 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  void showSafeSnackBar(BuildContext context, String message, Color color) {
+    Future.microtask(() {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: color,
+            behavior: SnackBarBehavior.fixed, // prevents off-screen error
+          ),
+        );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final isSmall = MediaQuery.of(context).size.width < 600;
@@ -48,9 +64,9 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                Color(0xFF8B0000), // Dark Red
-                Color(0xFFC0392B), // Deep Red
-                Color(0xFFE74C3C), // Vibrant Red
+                Color(0xFF8B0000),
+                Color(0xFFC0392B),
+                Color(0xFFE74C3C),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -183,12 +199,11 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                     separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final employeeData = filteredEmployees[index];
-
-                      // Convert Map to EmployeeModel (since it's always a Map)
                       final Map<String, dynamic> map =
                           employeeData as Map<String, dynamic>;
+
                       final EmployeeModel employee = EmployeeModel(
-                        id: map['id']?.toString() ?? index.toString(),
+                        id: map['id'] ?? map['uid'] ?? '',
                         name: map['name']?.toString() ?? '',
                         email: map['email']?.toString() ?? '',
                         role: map['role']?.toString() ?? 'Team Member',
@@ -539,7 +554,7 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                             child: ElevatedButton.icon(
                               onPressed: () {
                                 Navigator.pop(context);
-                                _showEditEmployeeDialog(employee);
+                                _showEditEmployeeDialog(context, employee);
                               },
                               icon: const Icon(Icons.edit, size: 18),
                               label: const Text('Edit'),
@@ -559,7 +574,7 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                             child: OutlinedButton.icon(
                               onPressed: () {
                                 Navigator.pop(context);
-                                _confirmDelete(employee);
+                                _confirmDelete(context, employee);
                               },
                               icon: const Icon(Icons.delete,
                                   size: 18, color: Colors.red),
@@ -986,7 +1001,10 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
     );
   }
 
-  void _showEditEmployeeDialog(EmployeeModel employee) {
+  void _showEditEmployeeDialog(
+    BuildContext parentContext,
+    EmployeeModel employee,
+  ) {
     final nameController = TextEditingController(text: employee.name);
     final departmentController =
         TextEditingController(text: employee.department);
@@ -1143,6 +1161,7 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                                           if (formKey.currentState!
                                               .validate()) {
                                             setState(() => isLoading = true);
+
                                             try {
                                               await _firestore
                                                   .collection('users')
@@ -1159,56 +1178,38 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                                                 'phone':
                                                     phoneController.text.trim(),
                                               });
-                                              if (context.mounted) {
+
+                                              await parentContext
+                                                  .read<AdminProvider>()
+                                                  .fetchEmployees();
+
+                                              if (Navigator.canPop(context)) {
                                                 Navigator.pop(context);
-                                                final adminProvider =
-                                                    Provider.of<AdminProvider>(
-                                                        context,
-                                                        listen: false);
-                                                await adminProvider
-                                                    .fetchEmployees();
-                                                ScaffoldMessenger.of(context)
-                                                    .showSnackBar(
-                                                  SnackBar(
-                                                    content: const Text(
-                                                        'Employee updated successfully'),
-                                                    backgroundColor:
-                                                        Colors.green.shade700,
-                                                    behavior: SnackBarBehavior
-                                                        .floating,
-                                                    shape:
-                                                        RoundedRectangleBorder(
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        12)),
-                                                  ),
-                                                );
                                               }
+
+                                              ScaffoldMessenger.of(
+                                                      parentContext)
+                                                  .showSnackBar(
+                                                SnackBar(
+                                                  content: const Text(
+                                                      'Employee updated successfully'),
+                                                  backgroundColor: Colors.green,
+                                                ),
+                                              );
                                             } catch (e) {
-                                              if (context.mounted) {
-                                                ScaffoldMessenger.of(context)
-                                                    .showSnackBar(
-                                                  SnackBar(
-                                                    content: Text(
-                                                        'Error: ${e.toString()}'),
-                                                    backgroundColor:
-                                                        Colors.red.shade700,
-                                                    behavior: SnackBarBehavior
-                                                        .floating,
-                                                    shape:
-                                                        RoundedRectangleBorder(
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        12)),
-                                                  ),
-                                                );
-                                              }
+                                              ScaffoldMessenger.of(
+                                                      parentContext)
+                                                  .showSnackBar(
+                                                SnackBar(
+                                                  content: Text('Error: $e'),
+                                                  backgroundColor: Colors.red,
+                                                ),
+                                              );
                                             } finally {
-                                              if (mounted)
+                                              if (mounted) {
                                                 setState(
                                                     () => isLoading = false);
+                                              }
                                             }
                                           }
                                         },
@@ -1262,7 +1263,7 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
       final adminProvider = Provider.of<AdminProvider>(context, listen: false);
       await adminProvider.fetchEmployees();
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(this.context).showSnackBar(
           SnackBar(
             content: Text(
                 'Employee ${employee.isActive ? 'deactivated' : 'activated'} successfully'),
@@ -1290,13 +1291,14 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
     }
   }
 
-  void _confirmDelete(EmployeeModel employee) {
+  void _confirmDelete(BuildContext parentContext, EmployeeModel employee) {
     showDialog(
-      context: context,
-      builder: (context) {
+      context: parentContext,
+      builder: (dialogContext) {
         return Dialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
           elevation: 0,
           backgroundColor: Colors.transparent,
           child: LayoutBuilder(
@@ -1311,7 +1313,9 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                      color: Colors.red.withOpacity(0.3), width: 1.5),
+                    color: Colors.red.withOpacity(0.3),
+                    width: 1.5,
+                  ),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.1),
@@ -1323,6 +1327,7 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Header
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: const BoxDecoration(
@@ -1340,49 +1345,62 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                               color: Colors.white.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(Icons.delete_forever,
-                                color: Colors.white, size: 22),
+                            child: const Icon(
+                              Icons.delete_forever,
+                              color: Colors.white,
+                              size: 22,
+                            ),
                           ),
                           const SizedBox(width: 12),
                           const Expanded(
                             child: Text(
                               'Delete Employee',
                               style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white),
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
+
+                    // Body
                     Flexible(
                       child: SingleChildScrollView(
                         padding: const EdgeInsets.all(24),
                         child: Column(
                           children: [
-                            Icon(Icons.warning_amber_rounded,
-                                size: 56, color: Colors.orange.shade700),
+                            Icon(
+                              Icons.warning_amber_rounded,
+                              size: 56,
+                              color: Colors.orange.shade700,
+                            ),
                             const SizedBox(height: 16),
                             Text(
                               'Delete ${employee.name}?',
                               style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFFE74C3C)),
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFFE74C3C),
+                              ),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 8),
                             Text(
                               'This action cannot be undone.',
                               style: TextStyle(
-                                  fontSize: 13, color: Colors.grey.shade600),
+                                fontSize: 13,
+                                color: Colors.grey.shade600,
+                              ),
                               textAlign: TextAlign.center,
                             ),
                           ],
                         ),
                       ),
                     ),
+
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -1392,25 +1410,21 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                           bottomRight: Radius.circular(24),
                         ),
                         border: Border(
-                            top: BorderSide(color: Colors.grey.shade200)),
+                          top: BorderSide(color: Colors.grey.shade200),
+                        ),
                       ),
                       child: Row(
                         children: [
                           Expanded(
                             child: TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              style: TextButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12)),
-                              ),
+                              onPressed: () => Navigator.pop(dialogContext),
                               child: Text(
                                 'Cancel',
                                 style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey.shade700,
-                                    fontWeight: FontWeight.w600),
+                                  fontSize: 14,
+                                  color: Colors.grey.shade700,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ),
@@ -1423,37 +1437,32 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                                       .collection('users')
                                       .doc(employee.id)
                                       .delete();
-                                  if (context.mounted) {
-                                    Navigator.pop(context);
-                                    final adminProvider =
-                                        Provider.of<AdminProvider>(context,
-                                            listen: false);
-                                    await adminProvider.fetchEmployees();
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: const Text(
-                                            'Employee deleted successfully'),
-                                        backgroundColor: Colors.green.shade700,
-                                        behavior: SnackBarBehavior.floating,
-                                        shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(12)),
-                                      ),
-                                    );
+
+                                  if (dialogContext.mounted) {
+                                    Navigator.pop(dialogContext);
                                   }
+
+                                  await parentContext
+                                      .read<AdminProvider>()
+                                      .fetchEmployees();
+
+                                  ScaffoldMessenger.of(parentContext)
+                                      .showSnackBar(
+                                    SnackBar(
+                                      content: const Text(
+                                        'Employee deleted successfully',
+                                      ),
+                                      backgroundColor: Colors.green.shade700,
+                                    ),
+                                  );
                                 } catch (e) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Error: ${e.toString()}'),
-                                        backgroundColor: Colors.red.shade700,
-                                        behavior: SnackBarBehavior.floating,
-                                        shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(12)),
-                                      ),
-                                    );
-                                  }
+                                  ScaffoldMessenger.of(parentContext)
+                                      .showSnackBar(
+                                    SnackBar(
+                                      content: Text('Error: $e'),
+                                      backgroundColor: Colors.red.shade700,
+                                    ),
+                                  );
                                 }
                               },
                               style: ElevatedButton.styleFrom(
@@ -1462,13 +1471,17 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 12),
                                 shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12)),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                                 elevation: 0,
                               ),
-                              child: const Text('Delete',
-                                  style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600)),
+                              child: const Text(
+                                'Delete',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
                           ),
                         ],
@@ -1485,7 +1498,7 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
   }
 }
 
-extension on Map<String, dynamic> {
+extension EmployeeMapExtension on Map<String, dynamic> {
   bool get isActive {
     final value = this['isActive'];
 
@@ -1495,29 +1508,35 @@ extension on Map<String, dynamic> {
       return value.toLowerCase() == 'true';
     }
 
+    if (value is int) {
+      return value == 1;
+    }
+
     return false;
   }
 
   String get phone {
     final value = this['phone'];
-    if (value == null) return '';
-    if (value is String) return value;
-    if (value is int) return value.toString(); // Convert int to String
-    if (value is double) return value.toString(); // Convert double to String
-    return '';
+    return value == null ? '' : value.toString();
   }
 
   String get position {
     final value = this['position'];
-    if (value == null) return '';
-    if (value is String) return value;
-    if (value is int) return value.toString();
-    return '';
+    return value == null ? '' : value.toString();
   }
 
   String get name {
     final value = this['name'];
-    if (value == null) return '';
-    return value.toString();
+    return value == null ? '' : value.toString();
+  }
+
+  String get email {
+    final value = this['email'];
+    return value == null ? '' : value.toString();
+  }
+
+  String get department {
+    final value = this['department'];
+    return value == null ? '' : value.toString();
   }
 }

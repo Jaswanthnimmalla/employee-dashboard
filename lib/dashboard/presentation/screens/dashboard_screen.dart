@@ -1,4 +1,3 @@
-// lib/features/auth/presentation/screens/dashboard_screen.dart
 import 'package:employee_dashboard_app/features/auth/presentation/screens/about_screen.dart';
 import 'package:employee_dashboard_app/features/auth/presentation/screens/blogs_screen.dart';
 import 'package:employee_dashboard_app/features/auth/presentation/screens/contact_us_screen.dart';
@@ -396,16 +395,150 @@ class _DashboardScreenState extends State<DashboardScreen>
             _checkCurrentAttendanceStatus();
           },
         ),
-        IconButton(
-          icon: const Icon(
-            Icons.notifications_none,
-            color: Colors.white,
-            size: 24,
+        GestureDetector(
+          onTap: _showProfile,
+          child: Container(
+            margin: const EdgeInsets.only(right: 12),
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ClipOval(
+              child: profileImageUrl.startsWith('http')
+                  ? Image.network(
+                      profileImageUrl,
+                      fit: BoxFit.cover,
+                      width: 44,
+                      height: 44,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: Colors.white24,
+                        child: const Icon(
+                          Icons.person,
+                          size: 28,
+                          color: Colors.white,
+                        ),
+                      ),
+                    )
+                  : profileImageUrl.startsWith('assets/')
+                      ? Image.asset(
+                          profileImageUrl,
+                          fit: BoxFit.cover,
+                          width: 44,
+                          height: 44,
+                          errorBuilder: (_, __, ___) => Container(
+                            color: Colors.white24,
+                            child: const Icon(
+                              Icons.person,
+                              size: 28,
+                              color: Colors.white,
+                            ),
+                          ),
+                        )
+                      : Container(
+                          color: Colors.white24,
+                          child: const Icon(
+                            Icons.person,
+                            size: 28,
+                            color: Colors.white,
+                          ),
+                        ),
+            ),
           ),
-          onPressed: () => _showNotifications(),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 4),
       ],
+    );
+  }
+
+  Widget _buildDrawerHeader() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF6C5CE7), Color(0xFF8E2DE2), Color(0xFFFF7043)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: UserAccountsDrawerHeader(
+        decoration: const BoxDecoration(),
+        accountName: Row(
+          children: [
+            Expanded(
+              child: Text(
+                userName,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                  letterSpacing: 0.5,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        accountEmail: Row(
+          children: [
+            Icon(Icons.email_outlined, size: 14, color: Colors.white70),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                userEmail,
+                style: const TextStyle(fontSize: 12),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        currentAccountPicture: Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 3),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: ClipOval(
+            child: profileImageUrl.startsWith('http')
+                ? Image.network(
+                    profileImageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      color: Colors.white24,
+                      child: const Icon(
+                        Icons.person,
+                        size: 45,
+                        color: Colors.white,
+                      ),
+                    ),
+                  )
+                : Image.asset(
+                    profileImageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      color: Colors.white24,
+                      child: const Icon(
+                        Icons.person,
+                        size: 45,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -413,8 +546,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     return Drawer(
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
-          topRight: Radius.circular(24),
-          bottomRight: Radius.circular(24),
+          topRight: Radius.circular(28),
+          bottomRight: Radius.circular(28),
         ),
       ),
       backgroundColor: _isDarkMode ? const Color(0xFF1A1A2E) : Colors.white,
@@ -425,13 +558,30 @@ class _DashboardScreenState extends State<DashboardScreen>
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
+                const SizedBox(height: 8),
                 _buildDrawerItem(
                   Icons.dashboard_rounded,
                   "Dashboard",
                   () => Navigator.pop(context),
                   isActive: true,
+                  color: const Color(0xFF6C5CE7),
                 ),
-                const Divider(height: 24, thickness: 1),
+                const Divider(
+                    height: 24, thickness: 1, indent: 20, endIndent: 20),
+                const SizedBox(height: 4),
+                _buildDrawerItem(
+                  Icons.person_rounded,
+                  "Profile",
+                  () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const ProfileScreen()),
+                    );
+                  },
+                  color: const Color(0xFF4A90E2),
+                ),
                 _buildDrawerItem(
                   Icons.info_rounded,
                   "About",
@@ -443,6 +593,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           builder: (context) => const AboutScreen()),
                     );
                   },
+                  color: const Color(0xFFF39C12),
                 ),
                 _buildDrawerItem(
                   Icons.article_rounded,
@@ -455,6 +606,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           builder: (context) => const BlogsScreen()),
                     );
                   },
+                  color: const Color(0xFF27AE60),
                 ),
                 _buildDrawerItem(
                   Icons.contact_mail_rounded,
@@ -467,86 +619,23 @@ class _DashboardScreenState extends State<DashboardScreen>
                           builder: (context) => const ContactUsScreen()),
                     );
                   },
+                  color: const Color(0xFFE74C3C),
                 ),
-                const Divider(height: 24, thickness: 1),
-                _buildDrawerItem(
-                  Icons.person_rounded,
-                  "Profile",
-                  () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const ProfileScreen()),
-                    );
-                  },
-                ),
-                _buildDrawerItem(
-                  Icons.person_rounded,
-                  "Settings",
-                  () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const SettingsScreen()),
-                    );
-                  },
-                ),
-                const Divider(height: 24, thickness: 1),
+                const Divider(
+                    height: 24, thickness: 1, indent: 20, endIndent: 20),
+                const SizedBox(height: 4),
                 _buildDrawerItem(
                   Icons.logout_rounded,
                   "Sign Out",
                   () => _logout(),
                   isDestructive: true,
+                  color: const Color(0xFFE74C3C),
                 ),
+                const SizedBox(height: 20),
               ],
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildDrawerHeader() {
-    return UserAccountsDrawerHeader(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF6C5CE7), Color(0xFF8B74FF)],
-        ),
-      ),
-      accountName: Text(
-        userName,
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-      ),
-      accountEmail: Text(userEmail, style: const TextStyle(fontSize: 13)),
-      currentAccountPicture: Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 3),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: ClipOval(
-          child: profileImageUrl.startsWith('http')
-              ? Image.network(
-                  profileImageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) =>
-                      const Icon(Icons.person, size: 50, color: Colors.white70),
-                )
-              : Image.asset(
-                  profileImageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) =>
-                      const Icon(Icons.person, size: 50, color: Colors.white70),
-                ),
-        ),
       ),
     );
   }
@@ -557,30 +646,76 @@ class _DashboardScreenState extends State<DashboardScreen>
     VoidCallback onTap, {
     bool isActive = false,
     bool isDestructive = false,
+    Color? color,
   }) {
-    return ListTile(
-      leading: Icon(
-        icon,
-        size: 24,
-        color: isDestructive
-            ? Colors.red
-            : (isActive
-                ? const Color(0xFF6C5CE7)
-                : (_isDarkMode ? Colors.white70 : const Color(0xFF4A4A5A))),
+    final itemColor = isDestructive
+        ? Colors.red
+        : (isActive
+            ? const Color(0xFF6C5CE7)
+            : (color ??
+                (_isDarkMode ? Colors.white70 : const Color(0xFF4A4A5A))));
+
+    final bgColor = isActive
+        ? (const Color(0xFF6C5CE7).withOpacity(0.1))
+        : Colors.transparent;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(16),
+        border: isActive
+            ? Border.all(
+                color: const Color(0xFF6C5CE7).withOpacity(0.3), width: 1)
+            : null,
       ),
-      title: Text(
-        title,
-        style: TextStyle(
-          color: isDestructive
-              ? Colors.red
-              : (isActive
-                  ? const Color(0xFF6C5CE7)
-                  : (_isDarkMode ? Colors.white70 : const Color(0xFF4A4A5A))),
-          fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-          fontSize: 15,
+      child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: itemColor.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(
+            icon,
+            size: 22,
+            color: itemColor,
+          ),
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: isDestructive
+                ? Colors.red
+                : (isActive
+                    ? const Color(0xFF6C5CE7)
+                    : (_isDarkMode ? Colors.white : const Color(0xFF2C3E50))),
+            fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
+            fontSize: 15,
+            letterSpacing: 0.3,
+          ),
+        ),
+        trailing: isActive
+            ? Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF6C5CE7), Color(0xFF8E2DE2)],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.arrow_forward_ios,
+                  size: 14,
+                  color: Colors.white,
+                ),
+              )
+            : null,
+        onTap: onTap,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
         ),
       ),
-      onTap: onTap,
     );
   }
 
@@ -622,49 +757,24 @@ class _DashboardScreenState extends State<DashboardScreen>
       ),
       child: Row(
         children: [
-          Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 3),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.25),
-                  blurRadius: 12,
-                  offset: const Offset(0, 6),
+          TweenAnimationBuilder(
+            tween: Tween<double>(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 800),
+            curve: Curves.elasticOut,
+            builder: (context, value, child) {
+              return Transform.scale(
+                scale: value,
+                child: Container(
+                  width: isTablet ? 75 : 65,
+                  height: isTablet ? 75 : 65,
+                  child: const Icon(
+                    Icons.work_history_rounded,
+                    size: 50,
+                    color: Colors.white,
+                  ),
                 ),
-              ],
-            ),
-            child: ClipOval(
-              child: Container(
-                width: isTablet ? 75 : 65,
-                height: isTablet ? 75 : 65,
-                child: profileImageUrl.startsWith('http')
-                    ? Image.network(
-                        profileImageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: Colors.white24,
-                          child: const Icon(
-                            Icons.person,
-                            size: 36,
-                            color: Colors.white,
-                          ),
-                        ),
-                      )
-                    : Image.asset(
-                        profileImageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: Colors.white24,
-                          child: const Icon(
-                            Icons.person,
-                            size: 36,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-              ),
-            ),
+              );
+            },
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -814,7 +924,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  // COMPLETE REAL-TIME STATISTICS WITH ALL DATA
   Widget _buildRealTimeStatistics(bool isTablet, bool isSmallPhone) {
     final user = FirebaseAuth.instance.currentUser;
 
@@ -1257,23 +1366,6 @@ class _DashboardScreenState extends State<DashboardScreen>
           },
         ),
         const SizedBox(height: 16),
-        _ExpandableSection(
-          title: "Holidays",
-          icon: Icons.celebration_rounded,
-          color: const Color(0xFFE91E63),
-          stream: _firestore.collection('holidays').orderBy('date').snapshots(),
-          itemBuilder: (context, doc) {
-            final data = doc.data() as Map<String, dynamic>;
-            return _ListItem(
-              title: data['name'] ?? 'Holiday',
-              subtitle: _formatDate(data['date']),
-              status: null,
-              color: const Color(0xFFE91E63),
-              icon: Icons.celebration_rounded,
-              showStatus: false,
-            );
-          },
-        ),
       ],
     );
   }
@@ -1440,63 +1532,411 @@ class _DashboardScreenState extends State<DashboardScreen>
   void _showProfile() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: _isDarkMode ? const Color(0xFF1A1A2E) : Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text(
-          'Profile Information',
-          style: TextStyle(
-            color: _isDarkMode ? Colors.white : const Color(0xFF1A1A2E),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: Container(
+          decoration: BoxDecoration(
+            color: _isDarkMode ? const Color(0xFF1A1A2E) : Colors.white,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: const Color(0xFF6C5CE7),
+              width: 3.0, // Bold border
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF6C5CE7).withOpacity(0.4),
+                blurRadius: 20,
+                spreadRadius: 5,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                right: 12,
+                top: 12,
+                child: GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: _isDarkMode
+                          ? Colors.white.withOpacity(0.1)
+                          : Colors.grey.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: const Color(0xFF6C5CE7),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.close,
+                      color: _isDarkMode ? Colors.white : Colors.grey.shade700,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFF6C5CE7),
+                          width: 4,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF6C5CE7).withOpacity(0.4),
+                            blurRadius: 15,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                      child: ClipOval(
+                        child: Container(
+                          width: 100,
+                          height: 100,
+                          color: Colors.grey.shade200,
+                          child: profileImageUrl.startsWith('http')
+                              ? Image.network(
+                                  profileImageUrl,
+                                  fit: BoxFit.cover,
+                                  width: 100,
+                                  height: 100,
+                                  errorBuilder: (_, __, ___) => Icon(
+                                    Icons.person,
+                                    size: 50,
+                                    color: _isDarkMode
+                                        ? Colors.white
+                                        : Colors.grey.shade600,
+                                  ),
+                                )
+                              : profileImageUrl.startsWith('assets/')
+                                  ? Image.asset(
+                                      profileImageUrl,
+                                      fit: BoxFit.cover,
+                                      width: 100,
+                                      height: 100,
+                                      errorBuilder: (_, __, ___) => Icon(
+                                        Icons.person,
+                                        size: 50,
+                                        color: _isDarkMode
+                                            ? Colors.white
+                                            : Colors.grey.shade600,
+                                      ),
+                                    )
+                                  : Icon(
+                                      Icons.person,
+                                      size: 50,
+                                      color: _isDarkMode
+                                          ? Colors.white
+                                          : Colors.grey.shade600,
+                                    ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: _isDarkMode
+                            ? Colors.white.withOpacity(0.05)
+                            : const Color(0xFFF8FAFF),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: const Color(0xFF6C5CE7).withOpacity(0.3),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF6C5CE7).withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFF6C5CE7).withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.person_rounded,
+                              color: Color(0xFF6C5CE7),
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Full Name',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: _isDarkMode
+                                        ? Colors.white60
+                                        : Colors.grey.shade600,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                Text(
+                                  userName,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: _isDarkMode
+                                        ? Colors.white
+                                        : const Color(0xFF1A1A2E),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: _isDarkMode
+                            ? Colors.white.withOpacity(0.05)
+                            : const Color(0xFFF8FAFF),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: const Color(0xFF4A90E2).withOpacity(0.3),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF4A90E2).withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFF4A90E2).withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.email_rounded,
+                              color: Color(0xFF4A90E2),
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Email Address',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: _isDarkMode
+                                        ? Colors.white60
+                                        : Colors.grey.shade600,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                Text(
+                                  userEmail,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: _isDarkMode
+                                        ? Colors.white70
+                                        : Colors.grey.shade800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: _isDarkMode
+                            ? Colors.white.withOpacity(0.05)
+                            : const Color(0xFFF8FAFF),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: const Color(0xFFF39C12).withOpacity(0.3),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF39C12).withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFFF39C12).withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.work_rounded,
+                              color: Color(0xFFF39C12),
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Role',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: _isDarkMode
+                                        ? Colors.white60
+                                        : Colors.grey.shade600,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF39C12)
+                                        .withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: const Color(0xFFF39C12)
+                                          .withOpacity(0.3),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    userRole,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFFF39C12),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.pop(context);
+                              // Navigate to edit profile screen
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFF6C5CE7),
+                                    Color(0xFF8E2DE2)
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 1,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF6C5CE7)
+                                        .withOpacity(0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.edit_rounded,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Edit Profile',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => Navigator.pop(context),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: _isDarkMode
+                                    ? Colors.white.withOpacity(0.1)
+                                    : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: const Color(0xFF6C5CE7),
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Text(
+                                'Close',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: _isDarkMode
+                                      ? Colors.white
+                                      : const Color(0xFF6C5CE7),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ClipOval(
-              child: Container(
-                width: 80,
-                height: 80,
-                child: profileImageUrl.startsWith('http')
-                    ? Image.network(profileImageUrl, fit: BoxFit.cover)
-                    : Image.asset(profileImageUrl, fit: BoxFit.cover),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Name: $userName',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: _isDarkMode ? Colors.white : const Color(0xFF1A1A2E),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Email: $userEmail',
-              style: TextStyle(
-                fontSize: 14,
-                color: _isDarkMode ? Colors.white70 : const Color(0xFF6B6B7B),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Role: $userRole',
-              style: TextStyle(
-                fontSize: 14,
-                color: _isDarkMode ? Colors.white70 : const Color(0xFF6B6B7B),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Close',
-              style: TextStyle(color: Color(0xFF6C5CE7)),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1637,7 +2077,6 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 }
 
-// Simple stat card component
 class _StatCard extends StatelessWidget {
   final String title;
   final String value;

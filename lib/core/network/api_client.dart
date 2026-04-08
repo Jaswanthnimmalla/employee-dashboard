@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:employee_dashboard_app/core/utils/app_exceptions.dart';
-import 'api_endpoints.dart'; // Correct relative import
+import 'api_endpoints.dart';
 
 class ApiClient {
   final http.Client _client;

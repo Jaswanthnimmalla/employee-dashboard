@@ -1,4 +1,3 @@
-// lib/features/admin/data/models/admin_stats_model.dart
 class AdminStatsModel {
   final int totalEmployees;
   final int presentToday;

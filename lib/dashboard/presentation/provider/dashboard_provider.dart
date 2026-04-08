@@ -20,7 +20,6 @@ class DashboardProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
 
-  // Getters
   DashboardModel? get dashboardStats => _dashboardStats;
   List<AttendanceModel> get attendanceList => _attendanceList;
   List<LeaveModel> get leaveList => _leaveList;

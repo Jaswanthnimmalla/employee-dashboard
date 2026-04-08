@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:excel/excel.dart' hide Border;
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'package:employee_dashboard_app/core/utils/attendance_time_logic.dart';
 
 class ManageAttendanceScreen extends StatefulWidget {
   const ManageAttendanceScreen({super.key});
@@ -93,9 +94,9 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
           letterSpacing: 0.5,
         ),
       ),
-      centerTitle: true, // This centers the title
+      centerTitle: true,
       elevation: 4,
-      backgroundColor: const Color(0xFF1A237E), // Navy Blue (Dark vibrant)
+      backgroundColor: const Color(0xFF1A237E),
       foregroundColor: Colors.white,
       iconTheme: const IconThemeData(color: Colors.white),
       titleTextStyle: const TextStyle(
@@ -108,9 +109,9 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Color(0xFF1A237E), // Dark Navy
-              Color(0xFF283593), // Vibrant Navy
-              Color(0xFF303F9F), // Lighter Navy
+              Color(0xFF1A237E),
+              Color(0xFF283593),
+              Color(0xFF303F9F),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -155,14 +156,10 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
 
   Widget _buildStatsCards() {
     return StreamBuilder<QuerySnapshot>(
-      // Change this line to match your actual role value
-      // Option 1: If role is 'Team Member' (as in your dashboard)
       stream: _firestore
           .collection('users')
           .where('role', isEqualTo: 'Team Member')
           .snapshots(),
-      // Option 2: If you want ALL users regardless of role
-      // stream: _firestore.collection('users').snapshots(),
       builder: (context, usersSnapshot) {
         if (usersSnapshot.hasError) {
           return Container(
@@ -193,7 +190,7 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
         final allEmployees = usersSnapshot.data!.docs;
         final totalEmployees = allEmployees.length;
 
-        print('Total employees found: $totalEmployees'); // Debug print
+        print('Total employees found: $totalEmployees');
 
         if (totalEmployees == 0) {
           return Container(
@@ -224,20 +221,33 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
             }
 
             final allRecords = attendanceSnapshot.data!.docs;
-            final filteredRecords = _applyFilters(allRecords);
+            final filteredRecords = allRecords;
 
             final Map<String, String> employeeBestStatus = {};
 
-            // Initialize ALL employees with 'Absent'
+            final now = DateTime.now();
+
+            final cutoff = DateTime(
+              now.year,
+              now.month,
+              now.day,
+              11,
+              40,
+            );
+
             for (final employee in allEmployees) {
               final employeeId = employee.id;
-              employeeBestStatus[employeeId] = 'Absent';
+
+              if (now.isAfter(cutoff)) {
+                employeeBestStatus[employeeId] = 'Absent';
+              } else {
+                employeeBestStatus[employeeId] = 'Pending';
+              }
             }
 
             final startDate = _selectedDate ?? _startDate;
             final endDate = _selectedDate ?? _endDate;
 
-            // Update status for employees who have attendance records
             for (final record in filteredRecords) {
               final userId = record['userId']?.toString() ?? '';
               final status = record['status']?.toString() ?? 'Absent';
@@ -251,15 +261,21 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
               } else if (status == 'Half Day' &&
                   employeeBestStatus[userId] != 'Present') {
                 employeeBestStatus[userId] = 'Half Day';
-              } else if (status == 'Late' &&
+              } else if (status == 'Very Late' &&
                   employeeBestStatus[userId] != 'Present' &&
                   employeeBestStatus[userId] != 'Half Day') {
+                employeeBestStatus[userId] = 'Very Late';
+              } else if (status == 'Late' &&
+                  employeeBestStatus[userId] != 'Present' &&
+                  employeeBestStatus[userId] != 'Half Day' &&
+                  employeeBestStatus[userId] != 'Very Late') {
                 employeeBestStatus[userId] = 'Late';
               }
             }
 
             int present = 0;
             int late = 0;
+            int veryLate = 0;
             int absent = 0;
             int halfDay = 0;
 
@@ -268,6 +284,9 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
                 case 'Present':
                   present++;
                   break;
+                case 'Very Late':
+                  veryLate++;
+                  break;
                 case 'Late':
                   late++;
                   break;
@@ -275,13 +294,30 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
                   halfDay++;
                   break;
                 case 'Absent':
-                  absent++;
+                  if (now.isAfter(cutoff)) {
+                    absent++;
+                  }
                   break;
               }
             }
 
-            double attendancePercentage =
-                totalEmployees > 0 ? (present / totalEmployees) * 100 : 0.0;
+            final presentEmployeeIds = <String>{};
+
+            for (final record in filteredRecords) {
+              final userId = record['userId']?.toString();
+
+              if (userId != null && record['checkInTime'] != null) {
+                presentEmployeeIds.add(userId);
+              }
+            }
+
+            final presentCount = presentEmployeeIds.length;
+
+            double attendancePercentage = totalEmployees > 0
+                ? (presentCount / totalEmployees) * 100
+                : 0.0;
+
+            attendancePercentage = attendancePercentage.clamp(0, 100);
             attendancePercentage = attendancePercentage.clamp(0, 100);
 
             return LayoutBuilder(
@@ -298,39 +334,38 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
                     (width - (crossAxisCount - 1) * 10) / crossAxisCount;
 
                 return Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    _buildStatCard(
-                      'Total Employees',
-                      totalEmployees.toString(),
-                      Icons.people,
-                      Colors.blue,
-                      cardWidth,
-                    ),
-                    _buildStatCard(
-                      'Present',
-                      present.toString(),
-                      Icons.check_circle,
-                      Colors.green,
-                      cardWidth,
-                    ),
-                    _buildStatCard(
-                      'Late',
-                      late.toString(),
-                      Icons.access_time,
-                      Colors.orange,
-                      cardWidth,
-                    ),
-                    _buildStatCard(
-                      'Absent',
-                      absent.toString(),
-                      Icons.cancel,
-                      Colors.red,
-                      cardWidth,
-                    ),
-                    if (halfDay > 0)
+                    spacing: 10,
+                    runSpacing: 10,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      _buildStatCard(
+                        'Total Employees',
+                        totalEmployees.toString(),
+                        Icons.people,
+                        Colors.blue,
+                        cardWidth,
+                      ),
+                      _buildStatCard(
+                        'Present',
+                        presentCount.toString(),
+                        Icons.check_circle,
+                        Colors.green,
+                        cardWidth,
+                      ),
+                      _buildStatCard(
+                        'Late',
+                        late.toString(),
+                        Icons.access_time,
+                        Colors.orange,
+                        cardWidth,
+                      ),
+                      _buildStatCard(
+                        'Absent',
+                        absent.toString(),
+                        Icons.cancel,
+                        Colors.red,
+                        cardWidth,
+                      ),
                       _buildStatCard(
                         'Half Day',
                         halfDay.toString(),
@@ -338,15 +373,14 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
                         Colors.purple,
                         cardWidth,
                       ),
-                    _buildStatCard(
-                      'Attendance Rate',
-                      '${attendancePercentage.toStringAsFixed(1)}%',
-                      Icons.percent,
-                      Colors.teal,
-                      cardWidth,
-                    ),
-                  ],
-                );
+                      _buildStatCard(
+                        'Very Late',
+                        veryLate.toString(),
+                        Icons.watch_later,
+                        Colors.deepOrange,
+                        cardWidth,
+                      ),
+                    ]);
               },
             );
           },
@@ -505,7 +539,6 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
 
           const SizedBox(height: 14),
 
-          /// EMPLOYEE DROPDOWN
           DropdownButtonFormField<String>(
             value: _selectedEmployee,
             decoration: InputDecoration(
@@ -545,7 +578,6 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
 
           const SizedBox(height: 14),
 
-          /// STATUS DROPDOWN
           DropdownButtonFormField<String>(
             value: _selectedStatus,
             decoration: InputDecoration(
@@ -586,7 +618,6 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
 
           const SizedBox(height: 14),
 
-          /// DATE RANGE PICKER
           InkWell(
             onTap: _showDateRangePicker,
             borderRadius: BorderRadius.circular(12),
@@ -731,15 +762,23 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
       case 'Present':
         statusColor = Colors.green;
         break;
+
       case 'Late':
         statusColor = Colors.orange;
         break;
-      case 'Absent':
-        statusColor = Colors.red;
+
+      case 'Very Late':
+        statusColor = Colors.deepOrange;
         break;
+
       case 'Half Day':
         statusColor = Colors.purple;
         break;
+
+      case 'Absent':
+        statusColor = Colors.red;
+        break;
+
       default:
         statusColor = Colors.blue;
     }
@@ -810,8 +849,6 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
                     ),
 
                     const SizedBox(width: 12),
-
-                    /// NAME + EMAIL + STATUS
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -871,15 +908,12 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
 
                 const SizedBox(height: 12),
 
-                /// DIVIDER
                 Divider(
                   color: Colors.grey.shade300,
                   thickness: 1,
                 ),
 
                 const SizedBox(height: 10),
-
-                /// DATE / CHECKIN / CHECKOUT
                 Row(
                   children: [
                     Expanded(
@@ -1014,7 +1048,6 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
                 ),
                 child: Row(
                   children: [
-                    /// SELFIE IMAGE
                     Container(
                       width: 60,
                       height: 60,
@@ -1065,10 +1098,7 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
                               ),
                       ),
                     ),
-
                     const SizedBox(width: 14),
-
-                    /// NAME + STATUS
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1095,7 +1125,6 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
                 ),
               ),
 
-              /// BODY
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(18),
@@ -1181,7 +1210,6 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
                 ),
               ),
 
-              /// FOOTER BUTTONS
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -1245,7 +1273,6 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
   ) {
     Color iconColor;
 
-    /// Auto color by field
     if (label.contains('Email')) {
       iconColor = Colors.blue;
     } else if (label.contains('Date')) {
@@ -1292,7 +1319,6 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
       ),
       child: Row(
         children: [
-          /// ICON BOX
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -1309,10 +1335,7 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
               color: iconColor,
             ),
           ),
-
           const SizedBox(width: 12),
-
-          /// TEXT SECTION
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1400,10 +1423,9 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
                             final hours =
                                 newCheckOut!.difference(newCheckIn!).inMinutes /
                                     60;
-                            if (selectedStatus == 'Present') {
-                              selectedStatus = hours >= 8
-                                  ? 'Present'
-                                  : (hours >= 4 ? 'Half Day' : 'Late');
+                            if (newCheckIn != null) {
+                              selectedStatus =
+                                  AttendanceTimeLogic.getStatus(newCheckIn!);
                             }
                           }
                         });
@@ -1468,9 +1490,20 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
                   child: const Text('Cancel')),
               ElevatedButton(
                 onPressed: () async {
-                  final totalHours = (newCheckIn != null && newCheckOut != null)
-                      ? newCheckOut!.difference(newCheckIn!).inMinutes / 60
-                      : 0.0;
+                  double totalHours = 0.0;
+                  double overtime = 0.0;
+                  double earlyLeave = 0.0;
+
+                  if (newCheckIn != null && newCheckOut != null) {
+                    final result = calculateOvertimeEarlyLeave(
+                      newCheckIn!,
+                      newCheckOut!,
+                    );
+
+                    totalHours = result['totalHours']!;
+                    overtime = result['overtime']!;
+                    earlyLeave = result['earlyLeave']!;
+                  }
 
                   await _firestore.collection('attendance').doc(doc.id).update({
                     'status': selectedStatus,
@@ -1496,8 +1529,11 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
   }
 
   void _autoMarkAbsent(List<QueryDocumentSnapshot> records) async {
-    final today = DateTime.now();
-    final todayStart = DateTime(today.year, today.month, today.day);
+    final now = DateTime.now();
+
+    if (now.hour < 11 || (now.hour == 11 && now.minute < 40)) return;
+
+    final todayStart = DateTime(now.year, now.month, now.day);
 
     final todayRecords = records.where((doc) {
       final date = (doc['date'] as Timestamp).toDate();
@@ -1510,10 +1546,8 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
 
     final users = await _firestore
         .collection('users')
-        .where('role', isEqualTo: 'Team Member') // Change this line
+        .where('role', isEqualTo: 'Team Member')
         .get();
-
-    print('Auto-mark: Total users found: ${users.docs.length}'); // Debug print
 
     for (var user in users.docs) {
       if (!employeesWithAttendance.contains(user.id)) {
@@ -1541,6 +1575,40 @@ class _ManageAttendanceScreenState extends State<ManageAttendanceScreen> {
         }
       }
     }
+  }
+
+  Map<String, double> calculateOvertimeEarlyLeave(
+    DateTime checkIn,
+    DateTime checkOut,
+  ) {
+    final officeEnd = DateTime(
+      checkOut.year,
+      checkOut.month,
+      checkOut.day,
+      18,
+      0,
+    );
+
+    final totalMinutes = checkOut.difference(checkIn).inMinutes;
+
+    final totalHours = totalMinutes / 60.0;
+
+    double overtime = 0;
+    double earlyLeave = 0;
+
+    if (checkOut.isAfter(officeEnd)) {
+      overtime = checkOut.difference(officeEnd).inMinutes / 60.0;
+    }
+
+    if (checkOut.isBefore(officeEnd)) {
+      earlyLeave = officeEnd.difference(checkOut).inMinutes / 60.0;
+    }
+
+    return {
+      'totalHours': totalHours,
+      'overtime': overtime,
+      'earlyLeave': earlyLeave,
+    };
   }
 
   void _showDateRangePicker() async {

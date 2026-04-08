@@ -1,5 +1,3 @@
-// lib/features/admin/data/repositories/admin_repository_impl.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:employee_dashboard_app/admin/data/domain/repositories/admin_repository.dart';
 import 'package:employee_dashboard_app/admin/data/models/admin_stats_model.dart';
@@ -10,11 +8,6 @@ import 'package:rxdart/rxdart.dart';
 
 class AdminRepositoryImpl implements AdminRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
-  // ===============================
-  // GET ALL EMPLOYEES
-  // ===============================
-
   Stream<List<EmployeeModel>> getAllEmployees() {
     return _firestore.collection('users').snapshots().map((snapshot) {
       return snapshot.docs
@@ -22,10 +15,6 @@ class AdminRepositoryImpl implements AdminRepository {
           .toList();
     });
   }
-
-  // ===============================
-  // GET ALL LEAVE REQUESTS
-  // ===============================
 
   Stream<List<LeaveRequestModel>> getAllLeaveRequests() {
     return _firestore
@@ -39,10 +28,6 @@ class AdminRepositoryImpl implements AdminRepository {
     });
   }
 
-  // ===============================
-  // GET ALL ATTENDANCE RECORDS
-  // ===============================
-
   Stream<List<AttendanceRecordModel>> getAllAttendanceRecords() {
     return _firestore
         .collection('attendance')
@@ -54,10 +39,6 @@ class AdminRepositoryImpl implements AdminRepository {
           .toList();
     });
   }
-
-  // ===============================
-  // UPDATE LEAVE STATUS
-  // ===============================
 
   Future<void> updateLeaveStatus(
     String leaveId,
@@ -71,17 +52,9 @@ class AdminRepositoryImpl implements AdminRepository {
     });
   }
 
-  // ===============================
-  // DELETE LEAVE REQUEST
-  // ===============================
-
   Future<void> deleteLeaveRequest(String leaveId) async {
     await _firestore.collection('leaves').doc(leaveId).delete();
   }
-
-  // ===============================
-  // UPDATE EMPLOYEE STATUS
-  // ===============================
 
   Future<void> updateEmployeeStatus(
     String employeeId,
@@ -92,17 +65,9 @@ class AdminRepositoryImpl implements AdminRepository {
     });
   }
 
-  // ===============================
-  // DELETE EMPLOYEE
-  // ===============================
-
   Future<void> deleteEmployee(String employeeId) async {
     await _firestore.collection('users').doc(employeeId).delete();
   }
-
-  // ===============================
-  // REAL-TIME ADMIN STATS
-  // ===============================
 
   Stream<AdminStatsModel> getAdminStats() {
     return Rx.combineLatest4<QuerySnapshot, QuerySnapshot, QuerySnapshot,
@@ -143,10 +108,6 @@ class AdminRepositoryImpl implements AdminRepository {
     );
   }
 
-  // ===============================
-  // GET TODAY DATE
-  // ===============================
-
   Timestamp _getToday() {
     final now = DateTime.now();
 
@@ -158,10 +119,6 @@ class AdminRepositoryImpl implements AdminRepository {
 
     return Timestamp.fromDate(today);
   }
-
-  // ===============================
-  // ATTENDANCE REPORT
-  // ===============================
 
   Future<Map<String, dynamic>> getAttendanceReport(
     DateTime startDate,
@@ -193,10 +150,6 @@ class AdminRepositoryImpl implements AdminRepository {
       'attendancePercentage': attendancePercentage,
     };
   }
-
-  // ===============================
-  // LEAVE REPORT
-  // ===============================
 
   Future<Map<String, dynamic>> getLeaveReport(
     DateTime startDate,

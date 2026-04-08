@@ -1,8 +1,6 @@
 import 'package:employee_dashboard_app/admin/data/models/leave_request_model.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-
-// IMPORTANT: Add this import
 import 'package:url_launcher/url_launcher.dart';
 
 class LeaveRequestCard extends StatelessWidget {

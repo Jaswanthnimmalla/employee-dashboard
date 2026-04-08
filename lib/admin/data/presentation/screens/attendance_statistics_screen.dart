@@ -30,71 +30,95 @@ class _AttendanceStatisticsScreenState
   Future<List<String>> _getAllEmployeeIds() async {
     final snapshot = await _firestore
         .collection('users')
-        .get(); // Remove the where clause entirely
-    print('Found ${snapshot.docs.length} employees'); // Debug print
+        .where('role', isEqualTo: 'Team Member')
+        .get();
+
     return snapshot.docs.map((doc) => doc.id).toList();
   }
 
   Map<String, dynamic> _calculateStatisticsWithEmployees(
-      List<QueryDocumentSnapshot> records, List<String> allEmployeeIds) {
+    List<QueryDocumentSnapshot> records,
+    List<String> allEmployeeIds,
+  ) {
     final totalEmployees = allEmployeeIds.length;
 
-    final Map<String, String> employeeBestStatus = {};
-    for (final employeeId in allEmployeeIds) {
-      employeeBestStatus[employeeId] = 'Absent';
-    }
+    final Set<String> presentEmployeeIds = {};
+    final Set<String> lateEmployeeIds = {};
+    final Set<String> veryLateEmployeeIds = {};
+    final Set<String> halfDayEmployeeIds = {};
 
     for (final record in records) {
       final userId = record['userId']?.toString() ?? '';
-      final status = record['status']?.toString() ?? 'Absent';
+      String status = 'Absent';
 
-      if (userId.isEmpty || !employeeBestStatus.containsKey(userId)) continue;
+      if (record['checkInTime'] != null) {
+        final checkIn = (record['checkInTime'] as Timestamp).toDate();
 
-      if (status == 'Present') {
-        employeeBestStatus[userId] = 'Present';
-      } else if (status == 'Half Day' &&
-          employeeBestStatus[userId] != 'Present') {
-        employeeBestStatus[userId] = 'Half Day';
-      } else if (status == 'Late' &&
-          employeeBestStatus[userId] != 'Present' &&
-          employeeBestStatus[userId] != 'Half Day') {
-        employeeBestStatus[userId] = 'Late';
+        status = getAttendanceStatusFromTime(checkIn);
+      }
+
+      if (userId.isEmpty) continue;
+
+      if (record['checkInTime'] != null) {
+        presentEmployeeIds.add(userId);
+      }
+
+      if (status == 'Late') {
+        lateEmployeeIds.add(userId);
+      }
+      if (status == 'Very Late') {
+        veryLateEmployeeIds.add(userId);
+      }
+
+      if (status == 'Half Day') {
+        halfDayEmployeeIds.add(userId);
       }
     }
 
-    int present = 0;
-    int late = 0;
-    int absent = 0;
-    int halfDay = 0;
+    int present = presentEmployeeIds.length;
 
-    for (final status in employeeBestStatus.values) {
-      switch (status) {
-        case 'Present':
-          present++;
-          break;
-        case 'Late':
-          late++;
-          break;
-        case 'Half Day':
-          halfDay++;
-          break;
-        case 'Absent':
-          absent++;
-          break;
-      }
+    int late = lateEmployeeIds.length;
+
+    int veryLate = veryLateEmployeeIds.length;
+
+    int halfDay = halfDayEmployeeIds.length;
+
+    int absent = totalEmployees - present;
+
+    if (absent < 0) {
+      absent = 0;
     }
 
-    final attendanceRate =
+    int attendedEmployees = present;
+
+    double attendanceRate =
         totalEmployees > 0 ? (present / totalEmployees) * 100 : 0.0;
+
+    attendanceRate = attendanceRate.clamp(0, 100);
 
     double totalOvertime = 0;
     double totalEarlyLeave = 0;
 
     for (var record in records) {
-      final hours = (record['totalHours'] ?? 0.0).toDouble();
-      if (hours > 8) totalOvertime += (hours - 8);
-      if (record['status'] == 'Present' && hours < 8 && hours > 0) {
-        totalEarlyLeave += (8 - hours);
+      if (record['checkInTime'] != null && record['checkOutTime'] != null) {
+        final checkOut = (record['checkOutTime'] as Timestamp).toDate();
+
+        final officeEndTime = DateTime(
+          checkOut.year,
+          checkOut.month,
+          checkOut.day,
+          18,
+          0,
+          0,
+        ); // 6:00 PM
+
+        final result = calculateOvertimeEarlyLeave(
+          (record['checkInTime'] as Timestamp).toDate(),
+          (record['checkOutTime'] as Timestamp).toDate(),
+        );
+
+        totalOvertime += result['overtime']!;
+        totalEarlyLeave += result['earlyLeave']!;
       }
     }
 
@@ -102,6 +126,7 @@ class _AttendanceStatisticsScreenState
       'totalRecords': records.length,
       'present': present,
       'late': late,
+      'veryLate': veryLate,
       'absent': absent,
       'halfDay': halfDay,
       'totalEmployees': totalEmployees,
@@ -532,11 +557,26 @@ class _AttendanceStatisticsScreenState
     }
 
     final List<Map<String, dynamic>> statusData = [];
-    final colors = [Colors.green, Colors.orange, Colors.red, Colors.purple];
-    final labels = ['Present', 'Late', 'Absent', 'Half Day'];
+    final colors = [
+      Colors.green,
+      Colors.orange,
+      Colors.deepOrange,
+      Colors.red,
+      Colors.purple,
+    ];
+
+    final labels = [
+      'Present',
+      'Late',
+      'Very Late',
+      'Absent',
+      'Half Day',
+    ];
+
     final values = [
       stats['present'] as int,
       stats['late'] as int,
+      stats['veryLate'] as int,
       stats['absent'] as int,
       stats['halfDay'] as int,
     ];
@@ -672,32 +712,44 @@ class _AttendanceStatisticsScreenState
   }
 
   Widget _buildDailyTrendsChart(
-      List<QueryDocumentSnapshot> records, bool isSmall) {
+    List<QueryDocumentSnapshot> records,
+    bool isSmall,
+  ) {
     final dailyData = <String, Map<String, dynamic>>{};
 
     for (var record in records) {
       final date = (record['date'] as Timestamp).toDate();
+
       final dateKey = DateFormat('dd MMM').format(date);
-      final status = record['status'] as String;
+
+      final status = record['status']?.toString() ?? 'Absent';
 
       if (!dailyData.containsKey(dateKey)) {
         dailyData[dateKey] = {
           'date': date,
           'present': 0,
           'late': 0,
+          'veryLate': 0,
+          'halfDay': 0,
           'absent': 0,
           'total': 0,
         };
       }
 
-      if (status == 'Present')
+      if (record['checkInTime'] != null) {
         dailyData[dateKey]!['present'] =
             (dailyData[dateKey]!['present'] as int) + 1;
-      if (status == 'Late')
+      }
+
+      if (status == 'Late') {
         dailyData[dateKey]!['late'] = (dailyData[dateKey]!['late'] as int) + 1;
-      if (status == 'Absent')
+      }
+
+      if (status == 'Absent') {
         dailyData[dateKey]!['absent'] =
             (dailyData[dateKey]!['absent'] as int) + 1;
+      }
+
       dailyData[dateKey]!['total'] = (dailyData[dateKey]!['total'] as int) + 1;
     }
 
@@ -711,19 +763,34 @@ class _AttendanceStatisticsScreenState
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.grey.shade200, width: 1.5),
+          border: Border.all(
+            color: Colors.grey.shade200,
+            width: 1.5,
+          ),
         ),
-        child: const Center(child: Text('No daily trend data available')),
+        child: const Center(
+          child: Text('No daily trend data available'),
+        ),
       );
     }
 
     final spots = <FlSpot>[];
+
     for (int i = 0; i < sortedDates.length; i++) {
       final dateKey = sortedDates[i];
+
       final total = dailyData[dateKey]!['total'] as int;
+
       final present = dailyData[dateKey]!['present'] as int;
+
       final attendanceRate = total > 0 ? (present / total) * 100 : 0.0;
-      spots.add(FlSpot(i.toDouble(), attendanceRate));
+
+      spots.add(
+        FlSpot(
+          i.toDouble(),
+          attendanceRate,
+        ),
+      );
     }
 
     return Container(
@@ -731,9 +798,15 @@ class _AttendanceStatisticsScreenState
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade200, width: 1.5),
+        border: Border.all(
+          color: Colors.grey.shade200,
+          width: 1.5,
+        ),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+          ),
         ],
       ),
       child: Column(
@@ -745,19 +818,26 @@ class _AttendanceStatisticsScreenState
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Colors.blue.shade400, Colors.cyan.shade400],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.blue.shade400,
+                      Colors.cyan.shade400,
+                    ],
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.trending_up,
-                    color: Colors.white, size: 20),
+                child: const Icon(
+                  Icons.trending_up,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 12),
               const Text(
                 'Daily Attendance Trend',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -766,52 +846,31 @@ class _AttendanceStatisticsScreenState
             height: 250,
             child: LineChart(
               LineChartData(
+                minY: 0,
+                maxY: 100,
                 gridData: FlGridData(
                   show: true,
-                  drawVerticalLine: false,
-                  horizontalInterval: 20,
-                  getDrawingHorizontalLine: (value) {
-                    return FlLine(
-                      color: Colors.grey.shade200,
-                      strokeWidth: 1,
-                      dashArray: [5, 5],
-                    );
-                  },
+                  drawHorizontalLine: true,
                 ),
+                borderData: FlBorderData(show: false),
                 titlesData: FlTitlesData(
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      reservedSize: 40,
+                      reservedSize: 32,
                       getTitlesWidget: (value, meta) {
-                        if (value.toInt() >= 0 &&
-                            value.toInt() < sortedDates.length) {
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Transform.rotate(
-                              angle: -0.785,
-                              child: Text(
-                                sortedDates[value.toInt()],
-                                style: const TextStyle(fontSize: 9),
-                              ),
-                            ),
+                        if (value.toInt() < sortedDates.length) {
+                          return Text(
+                            sortedDates[value.toInt()],
+                            style: const TextStyle(fontSize: 10),
                           );
                         }
-                        return const Text('');
+                        return const SizedBox();
                       },
                     ),
                   ),
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 40,
-                      getTitlesWidget: (value, meta) {
-                        return Text(
-                          '${value.toInt()}%',
-                          style: const TextStyle(fontSize: 10),
-                        );
-                      },
-                    ),
+                  leftTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: true),
                   ),
                   topTitles: const AxisTitles(
                     sideTitles: SideTitles(showTitles: false),
@@ -820,36 +879,42 @@ class _AttendanceStatisticsScreenState
                     sideTitles: SideTitles(showTitles: false),
                   ),
                 ),
-                borderData: FlBorderData(show: false),
                 lineBarsData: [
                   LineChartBarData(
                     spots: spots,
                     isCurved: true,
                     color: Colors.teal,
-                    barWidth: 3,
-                    dotData: FlDotData(show: true),
+                    barWidth: 4,
+                    isStrokeCapRound: true,
+                    dotData: const FlDotData(
+                      show: true,
+                    ),
                     belowBarData: BarAreaData(
                       show: true,
-                      color: Colors.teal.withOpacity(0.1),
+                      color: Colors.teal.withOpacity(0.15),
                     ),
                   ),
                 ],
-                minY: 0,
-                maxY: 100,
               ),
             ),
           ),
           const SizedBox(height: 12),
           Center(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 6,
+              ),
               decoration: BoxDecoration(
                 color: Colors.teal.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 '📈 Attendance Rate Trend (Last ${sortedDates.length} days)',
-                style: TextStyle(fontSize: 11, color: Colors.teal.shade700),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.teal.shade700,
+                ),
               ),
             ),
           ),
@@ -859,47 +924,95 @@ class _AttendanceStatisticsScreenState
   }
 
   Widget _buildWeeklyBarChart(
-      List<QueryDocumentSnapshot> records, bool isSmall) {
+    List<QueryDocumentSnapshot> records,
+    bool isSmall,
+  ) {
     final weeklyData = <String, Map<String, dynamic>>{};
     final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
     for (var day in days) {
-      weeklyData[day] = {'present': 0, 'total': 0};
+      weeklyData[day] = {
+        'present': 0,
+        'late': 0,
+        'veryLate': 0,
+        'halfDay': 0,
+        'absent': 0,
+        'total': 0,
+      };
     }
 
     for (var record in records) {
       final date = (record['date'] as Timestamp).toDate();
+
       final dayName = DateFormat('E').format(date);
-      final status = record['status'] as String;
+
+      String status = 'Absent';
+
+      if (record['checkInTime'] != null) {
+        final checkIn = (record['checkInTime'] as Timestamp).toDate();
+
+        status = getAttendanceStatusFromTime(checkIn);
+      }
 
       if (weeklyData.containsKey(dayName)) {
         weeklyData[dayName]!['total'] =
             (weeklyData[dayName]!['total'] as int) + 1;
+
         if (status == 'Present') {
           weeklyData[dayName]!['present'] =
               (weeklyData[dayName]!['present'] as int) + 1;
+        }
+
+        if (status == 'Late') {
+          weeklyData[dayName]!['late'] =
+              (weeklyData[dayName]!['late'] as int) + 1;
+        }
+
+        if (status == 'Very Late') {
+          weeklyData[dayName]!['veryLate'] =
+              (weeklyData[dayName]!['veryLate'] as int) + 1;
+        }
+
+        if (status == 'Half Day') {
+          weeklyData[dayName]!['halfDay'] =
+              (weeklyData[dayName]!['halfDay'] as int) + 1;
+        }
+
+        if (status == 'Absent') {
+          weeklyData[dayName]!['absent'] =
+              (weeklyData[dayName]!['absent'] as int) + 1;
         }
       }
     }
 
     final hasData = weeklyData.values.any((data) => (data['total'] as int) > 0);
+
     if (!hasData) {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.grey.shade200, width: 1.5),
+          border: Border.all(
+            color: Colors.grey.shade200,
+            width: 1.5,
+          ),
         ),
-        child: const Center(child: Text('No weekly data available')),
+        child: const Center(
+          child: Text('No weekly data available'),
+        ),
       );
     }
 
     final barGroups = <BarChartGroupData>[];
+
     for (int i = 0; i < days.length; i++) {
       final day = days[i];
+
       final total = weeklyData[day]!['total'] as int;
+
       final present = weeklyData[day]!['present'] as int;
+
       final attendanceRate = total > 0 ? (present / total) * 100 : 0.0;
 
       barGroups.add(
@@ -931,9 +1044,15 @@ class _AttendanceStatisticsScreenState
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade200, width: 1.5),
+        border: Border.all(
+          color: Colors.grey.shade200,
+          width: 1.5,
+        ),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+          ),
         ],
       ),
       child: Column(
@@ -946,21 +1065,25 @@ class _AttendanceStatisticsScreenState
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      Colors.orange.shade400,
-                      Colors.deepOrange.shade400
+                      Colors.orange,
+                      Colors.deepOrange,
                     ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child:
-                    const Icon(Icons.bar_chart, color: Colors.white, size: 20),
+                child: const Icon(
+                  Icons.bar_chart,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 12),
               const Text(
                 'Weekly Attendance Performance',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -972,62 +1095,8 @@ class _AttendanceStatisticsScreenState
                 alignment: BarChartAlignment.spaceAround,
                 maxY: 100,
                 barGroups: barGroups,
-                gridData: FlGridData(
-                  show: true,
-                  drawHorizontalLine: true,
-                  horizontalInterval: 25,
-                  getDrawingHorizontalLine: (value) {
-                    return FlLine(
-                      color: Colors.grey.shade200,
-                      strokeWidth: 1,
-                      dashArray: [5, 5],
-                    );
-                  },
-                ),
-                titlesData: FlTitlesData(
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 30,
-                      getTitlesWidget: (value, meta) {
-                        return Text(
-                          days[value.toInt()],
-                          style: const TextStyle(
-                              fontSize: 12, fontWeight: FontWeight.w600),
-                        );
-                      },
-                    ),
-                  ),
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 40,
-                      getTitlesWidget: (value, meta) {
-                        return Text('${value.toInt()}%',
-                            style: const TextStyle(fontSize: 10));
-                      },
-                    ),
-                  ),
-                  topTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  rightTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                ),
                 borderData: FlBorderData(show: false),
               ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Center(
-            child: Wrap(
-              spacing: 16,
-              children: [
-                _buildLegendItem(Colors.green, 'Excellent (>75%)'),
-                _buildLegendItem(Colors.orange, 'Average (50-75%)'),
-                _buildLegendItem(Colors.red, 'Poor (<50%)'),
-              ],
             ),
           ),
         ],
@@ -1036,40 +1105,71 @@ class _AttendanceStatisticsScreenState
   }
 
   Widget _buildLateArrivalTrends(
-      List<QueryDocumentSnapshot> records, bool isSmall) {
+    List<QueryDocumentSnapshot> records,
+    bool isSmall,
+  ) {
     final lateByHour = <int, int>{};
-    for (int i = 0; i < 24; i++) lateByHour[i] = 0;
+
+    for (int i = 0; i < 24; i++) {
+      lateByHour[i] = 0;
+    }
 
     for (var record in records) {
-      if (record['status'] == 'Late' && record['checkInTime'] != null) {
+      String status = '';
+
+      if (record['checkInTime'] != null) {
         final checkIn = (record['checkInTime'] as Timestamp).toDate();
+
+        status = getAttendanceStatusFromTime(checkIn);
+      }
+
+      if ((status == 'Late' || status == 'Very Late') &&
+          record['checkInTime'] != null) {
+        final checkIn = (record['checkInTime'] as Timestamp).toDate();
+
         final hour = checkIn.hour;
+
         lateByHour[hour] = (lateByHour[hour] ?? 0) + 1;
       }
     }
 
     final hasData = lateByHour.values.any((count) => count > 0);
+
     if (!hasData) {
       return const SizedBox.shrink();
     }
 
     final spots = <FlSpot>[];
+
     for (int i = 0; i < 24; i++) {
-      spots.add(FlSpot(i.toDouble(), (lateByHour[i] ?? 0).toDouble()));
+      spots.add(
+        FlSpot(
+          i.toDouble(),
+          (lateByHour[i] ?? 0).toDouble(),
+        ),
+      );
     }
 
     final maxLate = lateByHour.values.isEmpty
         ? 1
-        : lateByHour.values.reduce((a, b) => a > b ? a : b);
+        : lateByHour.values.reduce(
+            (a, b) => a > b ? a : b,
+          );
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade200, width: 1.5),
+        border: Border.all(
+          color: Colors.grey.shade200,
+          width: 1.5,
+        ),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+          ),
         ],
       ),
       child: Column(
@@ -1081,19 +1181,26 @@ class _AttendanceStatisticsScreenState
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Colors.red.shade400, Colors.orange.shade400],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.red.shade400,
+                      Colors.orange.shade400,
+                    ],
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.access_time,
-                    color: Colors.white, size: 20),
+                child: const Icon(
+                  Icons.access_time,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 12),
               const Text(
                 'Late Arrival Distribution',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -1102,51 +1209,8 @@ class _AttendanceStatisticsScreenState
             height: 250,
             child: LineChart(
               LineChartData(
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  getDrawingHorizontalLine: (value) {
-                    return FlLine(
-                      color: Colors.grey.shade200,
-                      strokeWidth: 1,
-                      dashArray: [5, 5],
-                    );
-                  },
-                ),
-                titlesData: FlTitlesData(
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 40,
-                      interval: 2,
-                      getTitlesWidget: (value, meta) {
-                        return Transform.rotate(
-                          angle: -0.785,
-                          child: Text(
-                            '${value.toInt()}:00',
-                            style: const TextStyle(fontSize: 9),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 30,
-                      getTitlesWidget: (value, meta) {
-                        return Text(value.toInt().toString(),
-                            style: const TextStyle(fontSize: 10));
-                      },
-                    ),
-                  ),
-                  topTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  rightTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                ),
+                minY: 0,
+                maxY: maxLate.toDouble() + 1,
                 borderData: FlBorderData(show: false),
                 lineBarsData: [
                   LineChartBarData(
@@ -1161,22 +1225,26 @@ class _AttendanceStatisticsScreenState
                     ),
                   ),
                 ],
-                minY: 0,
-                maxY: maxLate.toDouble() + 1,
               ),
             ),
           ),
           const SizedBox(height: 12),
           Center(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 6,
+              ),
               decoration: BoxDecoration(
                 color: Colors.red.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 '⏰ Peak Late Hours: ${_getPeakHour(lateByHour)}:00',
-                style: TextStyle(fontSize: 11, color: Colors.red.shade700),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.red.shade700,
+                ),
               ),
             ),
           ),
@@ -1186,30 +1254,61 @@ class _AttendanceStatisticsScreenState
   }
 
   Widget _buildDepartmentStats(
-      List<QueryDocumentSnapshot> records, bool isSmall) {
+    List<QueryDocumentSnapshot> records,
+    bool isSmall,
+  ) {
     final deptStats = <String, Map<String, dynamic>>{};
 
     for (var record in records) {
       final data = record.data() as Map<String, dynamic>;
+
       String dept = 'General';
 
       if (data.containsKey('department') && data['department'] != null) {
         dept = data['department'].toString();
       }
 
-      final status = record['status'] as String;
+      String status = 'Absent';
+
+      if (record['checkInTime'] != null) {
+        final checkIn = (record['checkInTime'] as Timestamp).toDate();
+
+        status = getAttendanceStatusFromTime(checkIn);
+      }
 
       if (!deptStats.containsKey(dept)) {
-        deptStats[dept] = {'present': 0, 'late': 0, 'absent': 0, 'total': 0};
+        deptStats[dept] = {
+          'present': 0,
+          'late': 0,
+          'veryLate': 0,
+          'halfDay': 0,
+          'absent': 0,
+          'total': 0,
+        };
       }
 
       deptStats[dept]!['total'] = (deptStats[dept]!['total'] as int) + 1;
-      if (status == 'Present')
+
+      if (status == 'Present') {
         deptStats[dept]!['present'] = (deptStats[dept]!['present'] as int) + 1;
-      if (status == 'Late')
+      }
+
+      if (status == 'Late') {
         deptStats[dept]!['late'] = (deptStats[dept]!['late'] as int) + 1;
-      if (status == 'Absent')
+      }
+
+      if (status == 'Very Late') {
+        deptStats[dept]!['veryLate'] =
+            (deptStats[dept]!['veryLate'] as int) + 1;
+      }
+
+      if (status == 'Half Day') {
+        deptStats[dept]!['halfDay'] = (deptStats[dept]!['halfDay'] as int) + 1;
+      }
+
+      if (status == 'Absent') {
         deptStats[dept]!['absent'] = (deptStats[dept]!['absent'] as int) + 1;
+      }
     }
 
     if (deptStats.isEmpty) {
@@ -1218,9 +1317,16 @@ class _AttendanceStatisticsScreenState
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.grey.shade200, width: 1.5),
+          border: Border.all(
+            color: Colors.grey.shade200,
+            width: 1.5,
+          ),
         ),
-        child: const Center(child: Text('No department data available')),
+        child: const Center(
+          child: Text(
+            'No department data available',
+          ),
+        ),
       );
     }
 
@@ -1229,9 +1335,15 @@ class _AttendanceStatisticsScreenState
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade200, width: 1.5),
+        border: Border.all(
+          color: Colors.grey.shade200,
+          width: 1.5,
+        ),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+          ),
         ],
       ),
       child: Column(
@@ -1243,19 +1355,26 @@ class _AttendanceStatisticsScreenState
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Colors.purple.shade400, Colors.indigo.shade400],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.purple,
+                      Colors.indigo,
+                    ],
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child:
-                    const Icon(Icons.business, color: Colors.white, size: 20),
+                child: const Icon(
+                  Icons.business,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 12),
               const Text(
                 'Department-wise Performance',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -1266,9 +1385,13 @@ class _AttendanceStatisticsScreenState
             itemCount: deptStats.keys.length,
             itemBuilder: (context, index) {
               final dept = deptStats.keys.elementAt(index);
+
               final stats = deptStats[dept]!;
+
               final total = stats['total'] as int;
+
               final present = stats['present'] as int;
+
               final rate = total > 0 ? (present / total) * 100 : 0.0;
 
               return Container(
@@ -1292,35 +1415,17 @@ class _AttendanceStatisticsScreenState
                             ),
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: rate >= 75
-                                ? Colors.green.withOpacity(0.1)
-                                : Colors.orange.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            '${rate.toStringAsFixed(1)}%',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: rate >= 75 ? Colors.green : Colors.orange,
-                            ),
+                        Text(
+                          '${rate.toStringAsFixed(1)}%',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     LinearProgressIndicator(
-                      value: rate / 100,
-                      backgroundColor: Colors.grey.shade200,
-                      color: rate >= 75
-                          ? Colors.green
-                          : rate >= 50
-                              ? Colors.orange
-                              : Colors.red,
+                      value: (rate / 100).clamp(0.0, 1.0),
                       minHeight: 8,
                       borderRadius: BorderRadius.circular(4),
                     ),
@@ -1332,6 +1437,8 @@ class _AttendanceStatisticsScreenState
                             'Present', stats['present'] as int, Colors.green),
                         _buildMiniStat(
                             'Late', stats['late'] as int, Colors.orange),
+                        _buildMiniStat('Very Late', stats['veryLate'] as int,
+                            Colors.deepOrange),
                         _buildMiniStat(
                             'Absent', stats['absent'] as int, Colors.red),
                       ],
@@ -1347,32 +1454,56 @@ class _AttendanceStatisticsScreenState
   }
 
   Widget _buildHourlyDistribution(
-      List<QueryDocumentSnapshot> records, bool isSmall) {
+    List<QueryDocumentSnapshot> records,
+    bool isSmall,
+  ) {
     final hourlyData = <int, int>{};
-    for (int i = 0; i < 24; i++) hourlyData[i] = 0;
+
+    for (int i = 0; i < 24; i++) {
+      hourlyData[i] = 0;
+    }
 
     for (var record in records) {
       if (record['checkInTime'] != null) {
         final checkIn = (record['checkInTime'] as Timestamp).toDate();
+
         final hour = checkIn.hour;
-        hourlyData[hour] = (hourlyData[hour] ?? 0) + 1;
+
+        String status = getAttendanceStatusFromTime(checkIn);
+
+        if (status == 'Present' ||
+            status == 'Late' ||
+            status == 'Very Late' ||
+            status == 'Half Day') {
+          hourlyData[hour] = (hourlyData[hour] ?? 0) + 1;
+        }
       }
     }
 
     final hasData = hourlyData.values.any((count) => count > 0);
+
     if (!hasData) {
       return const SizedBox.shrink();
     }
 
     final barGroups = <BarChartGroupData>[];
+
+    int maxCount = 0;
+
     for (int i = 0; i < 24; i++) {
-      if (hourlyData[i]! > 0) {
+      final count = hourlyData[i] ?? 0;
+
+      if (count > maxCount) {
+        maxCount = count;
+      }
+
+      if (count > 0) {
         barGroups.add(
           BarChartGroupData(
             x: i,
             barRods: [
               BarChartRodData(
-                toY: hourlyData[i]!.toDouble(),
+                toY: count.toDouble(),
                 color: Colors.teal,
                 width: 20,
                 borderRadius: BorderRadius.circular(4),
@@ -1388,9 +1519,15 @@ class _AttendanceStatisticsScreenState
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade200, width: 1.5),
+        border: Border.all(
+          color: Colors.grey.shade200,
+          width: 1.5,
+        ),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+          ),
         ],
       ),
       child: Column(
@@ -1402,19 +1539,26 @@ class _AttendanceStatisticsScreenState
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Colors.green.shade400, Colors.teal.shade400],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.green,
+                      Colors.teal,
+                    ],
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child:
-                    const Icon(Icons.schedule, color: Colors.white, size: 20),
+                child: const Icon(
+                  Icons.schedule,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 12),
               const Text(
                 'Check-in Hour Distribution',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -1423,41 +1567,41 @@ class _AttendanceStatisticsScreenState
             height: 250,
             child: BarChart(
               BarChartData(
-                alignment: BarChartAlignment.spaceAround,
-                barGroups: barGroups,
+                minY: 0,
+                maxY: 100,
                 gridData: FlGridData(
                   show: true,
                   drawHorizontalLine: true,
-                  getDrawingHorizontalLine: (value) {
-                    return FlLine(
-                      color: Colors.grey.shade200,
-                      strokeWidth: 1,
-                      dashArray: [5, 5],
-                    );
-                  },
                 ),
+                borderData: FlBorderData(show: false),
                 titlesData: FlTitlesData(
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      reservedSize: 40,
-                      interval: 2,
                       getTitlesWidget: (value, meta) {
-                        return Transform.rotate(
-                          angle: -0.785,
-                          child: Text(
-                            '${value.toInt()}:00',
-                            style: const TextStyle(fontSize: 9),
-                          ),
-                        );
+                        const days = [
+                          'Mon',
+                          'Tue',
+                          'Wed',
+                          'Thu',
+                          'Fri',
+                          'Sat',
+                          'Sun'
+                        ];
+
+                        if (value.toInt() < days.length) {
+                          return Text(
+                            days[value.toInt()],
+                            style: const TextStyle(fontSize: 10),
+                          );
+                        }
+
+                        return const SizedBox();
                       },
                     ),
                   ),
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 30,
-                    ),
+                  leftTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: true),
                   ),
                   topTitles: const AxisTitles(
                     sideTitles: SideTitles(showTitles: false),
@@ -1466,7 +1610,7 @@ class _AttendanceStatisticsScreenState
                     sideTitles: SideTitles(showTitles: false),
                   ),
                 ),
-                borderData: FlBorderData(show: false),
+                barGroups: barGroups,
               ),
             ),
           ),
@@ -1475,30 +1619,59 @@ class _AttendanceStatisticsScreenState
     );
   }
 
-  Widget _buildLegendItem(Color color, String label) {
+  Widget _buildLegendItem(
+    Color color,
+    String label,
+  ) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-            width: 12,
-            height: 12,
-            decoration: BoxDecoration(
-                color: color, borderRadius: BorderRadius.circular(3))),
-        const SizedBox(width: 4),
-        Text(label,
-            style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey.shade700,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildMiniStat(String label, int value, Color color) {
+  Widget _buildMiniStat(
+    String label,
+    int value,
+    Color color,
+  ) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Text(value.toString(),
-            style: TextStyle(
-                fontSize: 14, fontWeight: FontWeight.bold, color: color)),
-        Text(label,
-            style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+        Text(
+          value.toString(),
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey.shade600,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ],
     );
   }
@@ -1529,5 +1702,61 @@ class _AttendanceStatisticsScreenState
         _selectedPeriod = 'Custom';
       });
     }
+  }
+
+  String getAttendanceStatusFromTime(DateTime checkInTime) {
+    final minutes = checkInTime.hour * 60 + checkInTime.minute;
+
+    const presentEnd = 9 * 60 + 40; // 9:40
+    const lateEnd = 10 * 60 + 44; // 10:44
+    const veryLateEnd = 11 * 60 + 39; // 11:39
+    const halfDayStart = 11 * 60 + 40; // 11:40
+
+    if (minutes <= presentEnd) {
+      return 'Present';
+    } else if (minutes <= lateEnd) {
+      return 'Late';
+    } else if (minutes <= veryLateEnd) {
+      return 'Very Late';
+    } else if (minutes >= halfDayStart) {
+      return 'Half Day';
+    }
+
+    return 'Absent';
+  }
+
+  Map<String, double> calculateOvertimeEarlyLeave(
+    DateTime checkIn,
+    DateTime checkOut,
+  ) {
+    final officeEndTime = DateTime(
+      checkOut.year,
+      checkOut.month,
+      checkOut.day,
+      18,
+      0,
+      0,
+    ); // 6:00 PM
+
+    final totalMinutes = checkOut.difference(checkIn).inMinutes;
+
+    final totalHours = totalMinutes / 60.0;
+
+    double overtime = 0;
+    double earlyLeave = 0;
+
+    if (checkOut.isAfter(officeEndTime)) {
+      overtime = checkOut.difference(officeEndTime).inMinutes / 60.0;
+    }
+
+    if (checkOut.isBefore(officeEndTime)) {
+      earlyLeave = officeEndTime.difference(checkOut).inMinutes / 60.0;
+    }
+
+    return {
+      'totalHours': totalHours,
+      'overtime': overtime,
+      'earlyLeave': earlyLeave,
+    };
   }
 }

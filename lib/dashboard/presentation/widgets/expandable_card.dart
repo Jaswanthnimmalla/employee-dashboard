@@ -41,7 +41,6 @@ class _ExpandableCardState extends State<ExpandableCard> {
       ),
       child: Column(
         children: [
-          // Header
           InkWell(
             onTap: () {
               setState(() {
@@ -102,8 +101,6 @@ class _ExpandableCardState extends State<ExpandableCard> {
               ),
             ),
           ),
-
-          // Content
           if (_isExpanded) ...[
             const Divider(height: 0, thickness: 1, color: AppColors.divider),
             Padding(
@@ -111,8 +108,6 @@ class _ExpandableCardState extends State<ExpandableCard> {
               child: widget.child,
             ),
           ],
-
-          // View All Button
           if (widget.onViewAll != null && _isExpanded)
             Padding(
               padding: const EdgeInsets.only(bottom: 12, left: 16, right: 16),

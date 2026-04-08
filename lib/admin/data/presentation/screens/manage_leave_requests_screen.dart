@@ -48,8 +48,9 @@ class _ManageLeaveRequestScreenState extends State<ManageLeaveRequestScreen> {
         setState(() {
           userId = user.uid;
           userName = userDoc.data()?['name'] ?? user.displayName ?? 'Employee';
-          isAdmin = userDoc.data()?['role'] == 'admin' ||
-              user.email?.contains('admin') == true;
+
+          isAdmin =
+              (userDoc.data()?['role']?.toString().toLowerCase() == 'admin');
         });
       }
     }
@@ -985,8 +986,7 @@ class _ManageLeaveRequestScreenState extends State<ManageLeaveRequestScreen> {
                       .snapshots()
                   : FirebaseFirestore.instance
                       .collection("leaves")
-                      .where('studentId',
-                          isEqualTo: FirebaseAuth.instance.currentUser?.uid)
+                      .where('studentId', isEqualTo: userId)
                       .orderBy("timestamp", descending: true)
                       .snapshots(),
               builder: (context, snapshot) {
@@ -1016,7 +1016,6 @@ class _ManageLeaveRequestScreenState extends State<ManageLeaveRequestScreen> {
                   );
                 }
 
-                // Handle empty data case
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                   return Center(
                     child: Column(

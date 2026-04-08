@@ -127,7 +127,6 @@ class _UserRequestScreenState extends State<UserRequestScreen> {
       loading = true;
     });
 
-    /// SHOW PAPER JET LOADER DIALOG
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -414,15 +413,40 @@ class _UserRequestScreenState extends State<UserRequestScreen> {
     return Scaffold(
       backgroundColor: Colors.deepPurple.shade50,
       appBar: AppBar(
-        title: const Text("Request Management"),
-        backgroundColor: Colors.deepPurple,
         centerTitle: true,
+        elevation: 4,
+        backgroundColor: Colors.transparent,
+        iconTheme: const IconThemeData(
+          color: Colors.white,
+          size: 24,
+        ),
+        title: const Text(
+          "Request Management",
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+            letterSpacing: 0.5,
+          ),
+        ),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF6C5CE7),
+                Color(0xFF8E2DE2),
+                Color(0xFFFF7043),
+              ],
+            ),
+          ),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Apply Request Card
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -574,10 +598,24 @@ class _UserRequestScreenState extends State<UserRequestScreen> {
                                 strokeWidth: 2,
                               ),
                             )
-                          : const Text(
-                              "Submit Request",
-                              style: TextStyle(
-                                  fontSize: 16, fontWeight: FontWeight.bold),
+                          : const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.near_me_rounded,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  "Submit Request",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
                             ),
                     ),
                   ),

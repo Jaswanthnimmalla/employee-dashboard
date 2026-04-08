@@ -1,4 +1,3 @@
-// lib/features/admin/data/models/employee_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class EmployeeModel {

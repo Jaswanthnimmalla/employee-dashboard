@@ -52,9 +52,55 @@ class _ManageRequestsScreenState extends State<ManageRequestsScreen> {
   }
 
   Future<void> openProof(String url) async {
-    final Uri uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (url.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("No proof document available"),
+            backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
+    debugPrint("Opening proof URL: $url");
+
+    try {
+      final Uri uri = Uri.parse(url);
+
+      // Force open in external browser (Chrome)
+      await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+        webViewConfiguration: const WebViewConfiguration(
+          enableJavaScript: true,
+          enableDomStorage: true,
+        ),
+      );
+
+      debugPrint("URL launched successfully");
+    } catch (e) {
+      debugPrint("Error opening URL: $e");
+
+      // Alternative method: Try with forceSafariVC on iOS or forceWebView on Android
+      try {
+        await launchUrl(
+          Uri.parse(url),
+          mode: LaunchMode.externalApplication,
+        );
+      } catch (e2) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Cannot open file: ${e.toString()}"),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -153,9 +199,9 @@ class _ManageRequestsScreenState extends State<ManageRequestsScreen> {
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                Color(0xFF1B5E20), // Dark Green
-                Color(0xFF2E7D32), // Vibrant Green
-                Color(0xFF43A047), // Bright Green
+                Color(0xFF1B5E20),
+                Color(0xFF2E7D32),
+                Color(0xFF43A047),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -744,7 +790,8 @@ class _ManageRequestsScreenState extends State<ManageRequestsScreen> {
                         color: Colors.blue,
                       ),
                     ),
-                    if (data["fileUrl"] != null) ...[
+                    if (data["fileUrl"] != null &&
+                        data["fileUrl"].toString().isNotEmpty) ...[
                       const SizedBox(height: 12),
                       Container(
                         decoration: BoxDecoration(
@@ -963,7 +1010,8 @@ class _ManageRequestsScreenState extends State<ManageRequestsScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              onPressed: () => openProof(fileUrl),
+              onPressed: () =>
+                  openProof(fileUrl), // Make sure this calls the function
             ),
           ),
         ],

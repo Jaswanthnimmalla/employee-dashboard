@@ -1,8 +1,5 @@
 class AppStrings {
-  // App Name
   static const String appName = 'Employee Dashboard';
-
-  // Authentication
   static const String login = 'Login';
   static const String signup = 'Sign Up';
   static const String email = 'Email';
@@ -19,8 +16,6 @@ class AppStrings {
       'Please enter your credentials to continue';
   static const String enterDetails =
       'Please enter your details to create an account';
-
-  // Dashboard
   static const String dashboard = 'Dashboard';
   static const String goodMorning = 'Good Morning';
   static const String goodAfternoon = 'Good Afternoon';
@@ -32,8 +27,6 @@ class AppStrings {
   static const String requests = 'Requests';
   static const String holidays = 'Holidays';
   static const String recentActivity = 'Recent Activity';
-
-  // Messages
   static const String loginSuccess = 'Login successful!';
   static const String signupSuccess = 'Account created successfully!';
   static const String logoutSuccess = 'Logged out successfully';
@@ -42,8 +35,6 @@ class AppStrings {
   static const String somethingWentWrong =
       'Something went wrong. Please try again.';
   static const String noData = 'No data available';
-
-  // Validation Messages
   static const String emailRequired = 'Email is required';
   static const String validEmail = 'Please enter a valid email';
   static const String passwordRequired = 'Password is required';
